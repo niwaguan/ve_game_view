@@ -1,20 +1,10 @@
 #import "VeGameViewPlugin.h"
+#import "VeGameViewFactory.h"
+#import "Constants.h"
 
 @implementation VeGameViewPlugin
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
-  FlutterMethodChannel* channel = [FlutterMethodChannel
-      methodChannelWithName:@"ve_game_view"
-            binaryMessenger:[registrar messenger]];
-  VeGameViewPlugin* instance = [[VeGameViewPlugin alloc] init];
-  [registrar addMethodCallDelegate:instance channel:channel];
-}
-
-- (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
-  if ([@"getPlatformVersion" isEqualToString:call.method]) {
-    result([@"iOS " stringByAppendingString:[[UIDevice currentDevice] systemVersion]]);
-  } else {
-    result(FlutterMethodNotImplemented);
-  }
+  [registrar registerViewFactory:[VeGameViewFactory factoryWithBinaryMessenger:registrar.messenger] withId:VeGameViewTypeID];
 }
 
 @end
