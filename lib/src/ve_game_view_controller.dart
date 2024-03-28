@@ -8,4 +8,9 @@ class VeGameViewController {
       return null;
     });
   }
+
+  /// 启动游戏
+  start(VeGameConfig config) {
+    _channel.invokeMethod("start", config.toJson());
+  }
 }
