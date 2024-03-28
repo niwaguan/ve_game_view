@@ -18,7 +18,7 @@ A new Flutter project.
   s.source_files = 'Classes/**/*'
   s.public_header_files = 'Classes/**/*.h'
   s.dependency 'Flutter'
-  s.dependency 'VeGameSDK'
+  s.dependency 'VeGameSDK', '~> 1.39.0'
   s.platform = :ios, '11.0'
   # s.vendored_frameworks = 'frameworks/*.framework'
   # Flutter.framework does not contain a i386 slice.
