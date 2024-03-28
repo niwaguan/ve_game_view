@@ -2,6 +2,8 @@
 # To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
 # Run `pod lib lint ve_game_view.podspec` to validate before publishing.
 #
+
+
 Pod::Spec.new do |s|
   s.name             = 've_game_view'
   s.version          = '0.0.1'
@@ -16,8 +18,9 @@ A new Flutter project.
   s.source_files = 'Classes/**/*'
   s.public_header_files = 'Classes/**/*.h'
   s.dependency 'Flutter'
+  s.dependency 'VeGameSDK'
   s.platform = :ios, '11.0'
-
+  # s.vendored_frameworks = 'frameworks/*.framework'
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
 end
