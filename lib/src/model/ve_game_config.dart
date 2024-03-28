@@ -17,21 +17,29 @@ class VeGameConfig {
   /// 启动的游戏id
   final VeGame gameId;
 
+  /// 回合id。若未指定，使用 uid+[1,2,3,...]
+  final String? roundId;
+
   VeGameConfig({
     required this.uid,
     required this.ak,
     required this.sk,
     required this.token,
     required this.gameId,
+    this.roundId,
   });
 
   Object toJson() {
-    return {
+    final r = {
       "uid": uid,
       "ak": ak,
       "sk": sk,
       "token": token,
-      "gameId": gameId,
+      "gameId": gameId.toString(),
     };
+    if (roundId?.isNotEmpty == true) {
+      r["roundId"] = roundId!;
+    }
+    return r;
   }
 }

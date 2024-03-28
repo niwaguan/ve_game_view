@@ -57,6 +57,7 @@ class VeGameView extends StatelessWidget {
               },
             )
               ..addOnPlatformViewCreatedListener(params.onPlatformViewCreated)
+              ..addOnPlatformViewCreatedListener(_onPlatformViewCreated)
               ..create();
           },
         );
