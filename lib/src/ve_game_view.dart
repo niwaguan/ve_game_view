@@ -1,5 +1,7 @@
 library ve_game_view;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
@@ -7,13 +9,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 part 'constants.dart';
+part 'model/ve_game.dart';
+part 'model/ve_game_config.dart';
 part 've_game_initializer.dart';
 part 've_game_method_channel.dart';
 part 've_game_type.dart';
 part 've_game_view_controller.dart';
 
 class VeGameView extends StatelessWidget {
-  const VeGameView({super.key, this.onCreated});
+  const VeGameView({
+    super.key,
+    this.onCreated,
+  });
 
   /// 创建实例后的回调
   final VeGameViewCreated? onCreated;
