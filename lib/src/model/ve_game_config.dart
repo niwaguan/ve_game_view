@@ -31,7 +31,7 @@ class VeGameConfig {
       "ak": ak,
       "sk": sk,
       "token": token,
-      "gameId": gameId,
+      "gameId": gameId.toString(),
     };
   }
 }

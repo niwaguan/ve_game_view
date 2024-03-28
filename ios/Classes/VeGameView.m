@@ -22,6 +22,10 @@
 @property (nonatomic, copy) NSString *roundId;
 
 @end
+
+@implementation VeCloudGameConfigObject
+@end
+
 @interface VeGameView ()<VeGameManagerDelegate>
 
 @property (nonatomic, assign) BOOL alreadyStart;
@@ -34,6 +38,7 @@
 @property (nonatomic, assign) double last_motion_x;
 @property (nonatomic, assign) double last_motion_y;
 @property (nonatomic, strong) VeCloudGameConfigObject *configObj;
+@property (nonatomic, assign) int  roundIdCount;
 
 @property (nonatomic, assign) NSInteger rotation;
 @end
@@ -44,30 +49,22 @@
               binaryMessenger:(NSObject<FlutterBinaryMessenger> *)binaryMessenger
                    identifier:(int64_t)identifier
                     arguments:(id _Nullable)args {
-    [[VeGameManager sharedInstance] initWithAccountId:@"------AccountID------"];
-  VeGameView *view = [[VeGameView alloc] init];
-        VeCloudGameConfigObject *obj = [[VeCloudGameConfigObject alloc] init];
-        obj.ak=@"";
-        obj.sk=@"";
-        obj.token=@"";
-        obj.userId=@"";
-        obj.gameId=@"";
-        obj.roundId=@"";
-        obj.netProbe=true;
-  view.iView = [[UIView alloc] initWithFrame:frame];
-    view.configObj=obj;
-  [view buildView];
-  view.methodChannel = [FlutterMethodChannel methodChannelWithName:[NSString stringWithFormat:@"%@.%lld", VeGameViewTypeID, identifier] binaryMessenger:binaryMessenger];
-  
-  typeof(view) __weak weak = view;
-  [view.methodChannel setMethodCallHandler:^(FlutterMethodCall * _Nonnull call, FlutterResult  _Nonnull result) {
-    [weak onFlutterMethodCall:call result:result];
-  }];
-  return view;
+    VeGameView *view = [[VeGameView alloc] init];
+    view.roundIdCount=0;
+    view.iView = [[UIView alloc] initWithFrame:frame];
+    view.methodChannel = [FlutterMethodChannel methodChannelWithName:[NSString stringWithFormat:@"%@.%lld", VeGameViewTypeID, identifier] binaryMessenger:binaryMessenger];
+    
+    typeof(view) __weak weak = view;
+    [view.methodChannel setMethodCallHandler:^(FlutterMethodCall * _Nonnull call, FlutterResult  _Nonnull result) {
+
+                  
+        [weak onFlutterMethodCall:call result:result];
+    }];
+    return view;
 }
 
 - (void)buildView {
-    [self configSubView];
+//    [self configSubView];
     self.rotation = 0;
     [VeGameManager sharedInstance].containerView = self.iView;
     VeGameConfigObject *configObj = [VeGameConfigObject new];
@@ -76,9 +73,9 @@
     configObj.token = self.configObj.token;
     configObj.userId = self.configObj.userId;
     [[VeGameManager sharedInstance] probeStart: configObj];
-
+    
     [VeGameManager sharedInstance].delegate = self;
-  _iView.backgroundColor = [UIColor redColor];
+    _iView.backgroundColor = [UIColor redColor];
     [[NSNotificationCenter defaultCenter] addObserver: self
                                              selector: @selector(receiveAppWillTerminateNotification:)
                                                  name: UIApplicationWillTerminateNotification
@@ -91,19 +88,20 @@
                                              selector: @selector(receiveAppWillEnterForegroundNotification:)
                                                  name: UIApplicationWillEnterForegroundNotification
                                                object: nil];
+    [self startGame];
 }
 - (void)configSubView
 {
     // 画布
-    self.iView = ({
-        UIView *containerView = [[UIView alloc] init];
-        containerView.backgroundColor = [UIColor blackColor];
-        [self.view addSubview: containerView];
-        containerView;
-    });
+//    self.iView = ({
+//        UIView *containerView = [[UIView alloc] init];
+//        containerView.backgroundColor = [UIColor blackColor];
+//        [self.view addSubview: containerView];
+//        containerView;
+//    });
 }
 - (nonnull UIView *)view {
-  return _iView;
+    return _iView;
 }
 
 - (void)startGame
@@ -125,7 +123,25 @@
 
 
 - (void)onFlutterMethodCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
-  
+
+    if ([@"start" isEqualToString:call.method]) {
+        self.roundIdCount++;
+        VeCloudGameConfigObject *obj = [[VeCloudGameConfigObject alloc] init];
+        if(call.arguments[@"roundId"]!=nil){
+            
+            obj.roundId=call.arguments[@"roundId"];
+        }else{
+            obj.roundId=[NSString stringWithFormat:@"%@%d", call.arguments[@"uid"], self.roundIdCount];
+        }
+        obj.ak=call.arguments[@"ak"];
+        obj.sk=call.arguments[@"sk"];
+        obj.token=call.arguments[@"token"];
+        obj.userId=call.arguments[@"uid"];
+        obj.gameId=call.arguments[@"gameId"];
+        obj.netProbe=false;
+        self.configObj=obj;
+        [self buildView];
+    }
 }
 #pragma mark - receive notification
 
