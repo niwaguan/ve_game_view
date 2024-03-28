@@ -5,6 +5,9 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url 'https://artifact.bytedance.com/repository/Volcengine/'
+        }
     }
 
     dependencies {
@@ -16,6 +19,9 @@ rootProject.allprojects {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url 'https://artifact.bytedance.com/repository/Volcengine/'
+        }
     }
 }
 
@@ -38,6 +44,7 @@ android {
     }
 
     dependencies {
+        implementation 'com.volcengine.vegame:vegame:1.32.0'
         testImplementation 'junit:junit:4.13.2'
         testImplementation 'org.mockito:mockito-core:5.0.0'
     }
