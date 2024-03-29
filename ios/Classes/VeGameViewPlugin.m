@@ -19,7 +19,9 @@
 
 // TODO: 实现来自Flutter端的调用
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+    NSLog(@"%@", result);
     if ([@"init" isEqualToString:call.method]) {
+        NSLog(@"%@", call.arguments[@"accountId"]);
        [[VeGameManager sharedInstance] initWithAccountId:call.arguments[@"accountId"]];
     }
 }
