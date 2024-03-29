@@ -1,5 +1,6 @@
 package cn.stormyang.ve_game_view.ve_game_view;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
 import android.util.AttributeSet;
@@ -11,10 +12,14 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.volcengine.androidcloud.common.model.StreamStats;
+import com.volcengine.cloudcore.common.mode.LocalStreamStats;
 import com.volcengine.cloudcore.common.mode.QueueInfo;
+import com.volcengine.cloudcore.common.mode.StreamType;
 import com.volcengine.cloudgame.GamePlayConfig;
 import com.volcengine.cloudgame.VeGameEngine;
 import com.volcengine.cloudphone.apiservice.outinterface.IGamePlayerListener;
+import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,7 +33,7 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.platform.PlatformView;
 
-public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerListener {
+public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerListener, IStreamListener {
     private final String TAG = "VeGameView";
     @NonNull
     private final FrameLayout mContainer;
@@ -38,8 +43,15 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     private Integer roundId = 0;
 
-    VeGameView(@NonNull Context context, int id, @Nullable Map<String, Object> creationParams, @NonNull BinaryMessenger binaryMessenger) {
-        mContainer = new FrameLayout(context);
+    VeGameView(@NonNull Context context, int id, @Nullable Map<String, Object> creationParams, @NonNull BinaryMessenger binaryMessenger, Activity activity) {
+        mContainer = new FrameLayout(activity);
+        mContainer.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+        mContainer.setVisibility(View.VISIBLE);
+        mContainer.setBackgroundColor(Color.rgb(213, 0, 0));
+
         methodChannel = new MethodChannel(binaryMessenger, Constants.GAME_TYPE_ID + "." + id);
         methodChannel.setMethodCallHandler(this);
     }
@@ -102,7 +114,17 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         }
 
         GamePlayConfig.Builder builder = new GamePlayConfig.Builder();
-        builder.userId(uid).ak(ak).sk(sk).token(token).gameId(gameId).container(mContainer).roundId(roundId);
+        builder.userId(uid).ak(ak).sk(sk).token(token).gameId(gameId)
+                .container(mContainer).roundId(roundId).streamListener(this);
+
+        Integer streamType = call.argument("streamType");
+        if (streamType != null) {
+            builder.streamType(StreamType.valueOf(streamType));
+        }
+        String reservedId = call.argument("reservedId");
+        if (reservedId != null) {
+            builder.reservedId(reservedId);
+        }
 
         GamePlayConfig mGamePlayConfig = builder.build();
         VeGameEngine.getInstance().start(mGamePlayConfig, this);
@@ -178,5 +200,65 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         methodChannel.invokeMethod("onQueueSuccessAndStart", new HashMap<String, Integer>(){{
             put("remainTime", i);
         }});
+    }
+
+    @Override
+    public void onFirstAudioFrame(String s) {
+
+    }
+
+    @Override
+    public void onFirstRemoteVideoFrame(String s) {
+
+    }
+
+    @Override
+    public void onStreamStarted() {
+
+    }
+
+    @Override
+    public void onStreamPaused() {
+
+    }
+
+    @Override
+    public void onStreamResumed() {
+
+    }
+
+    @Override
+    public void onStreamStats(StreamStats streamStats) {
+
+    }
+
+    @Override
+    public void onLocalStreamStats(LocalStreamStats localStreamStats) {
+
+    }
+
+    @Override
+    public void onStreamConnectionStateChanged(int i) {
+
+    }
+
+    @Override
+    public void onDetectDelay(long l) {
+
+    }
+
+    @Override
+    public void onRotation(int i) {
+
+    }
+
+    @Override
+    public void onPodExit(int i, String s) {
+
+    }
+
+    @Override
+    public void onNetworkQuality(int i) {
+
     }
 }
