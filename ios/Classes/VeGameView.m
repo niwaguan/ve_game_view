@@ -101,7 +101,6 @@
                        context:(void *)context {
     if (object == self.view && [keyPath isEqualToString:@"frame"]) {
         CGRect newFrame = [[change objectForKey:NSKeyValueChangeNewKey] CGRectValue];
-        NSLog(@"View's frame has changed: %@", NSStringFromCGRect(newFrame));
         
         // 在这里可以执行你想要做的操作，比如重新布局等
         [self startGame];
