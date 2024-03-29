@@ -14,8 +14,8 @@ class VeGameConfig {
   /// 临时token
   final String token;
 
-  /// 启动的游戏id
-  final VeGame gameId;
+  /// 启动的游戏id。需要提前在管理控制台创建游戏后获取
+  final String gameId;
 
   /// 回合id。若未指定，使用 uid+[1,2,3,...]
   final String? roundId;
@@ -35,7 +35,7 @@ class VeGameConfig {
       "ak": ak,
       "sk": sk,
       "token": token,
-      "gameId": gameId.toString(),
+      "gameId": gameId,
     };
     if (roundId?.isNotEmpty == true) {
       r["roundId"] = roundId!;

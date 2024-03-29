@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 part 'constants.dart';
-part 'model/ve_game.dart';
 part 'model/ve_game_config.dart';
 part 've_game_initializer.dart';
 part 've_game_method_channel.dart';
