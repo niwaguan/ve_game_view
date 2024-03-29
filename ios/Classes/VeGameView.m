@@ -12,6 +12,21 @@
 #import <CoreMotion/CoreMotion.h>
 #import <Flutter/Flutter.h>
 
+/** ---------------- 鼠标按钮类型 ----------------- */
+typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
+    /** 左键 */
+    VeGameMouseButtonTypeLeft = 0,
+    /** 中间 */
+    VeGameMouseButtonTypeMiddle,
+    /** 右键 */
+    VeGameMouseButtonTypeRight,
+    /** XButton1 */
+    VeGameMouseButtonTypeXButton1,
+    /** XButton2 */
+    VeGameMouseButtonTypeXButton2
+};
+
+
 @interface VeCloudGameConfigObject : NSObject
 
 @property (nonatomic, assign) BOOL netProbe;
@@ -21,11 +36,43 @@
 @property (nonatomic, copy) NSString *gameId;
 @property (nonatomic, copy) NSString *userId;
 @property (nonatomic, copy) NSString *roundId;
+@property (nonatomic, copy) NSString *reservedId;
 
 @end
 
 @implementation VeCloudGameConfigObject
 @end
+/** ------------ 鼠标操作 ------------- */
+@interface VeGameMouseMessage : NSObject
+/**
+ * 当 action = VeGameMouseActionTypeMove 时，为游戏画面 X 轴相对值，差值
+ * 当 action = VeGameMouseActionTypeCursorPos 时，为游戏画面 X 轴绝对值，[0, 1]
+ */
+@property (nonatomic, assign) CGFloat x;
+/**
+ * 当 action = VeGameMouseActionTypeMove 时，为游戏画面 Y 轴相对值，差值
+ * 当 action = VeGameMouseActionTypeCursorPos 时，为游戏画面 Y 轴绝对值，[0, 1]
+ */
+@property (nonatomic, assign) CGFloat y;
+/**
+ * 滚轮值
+ */
+@property (nonatomic, assign) int32_t wheel;
+
+
+/**
+ * 按钮类型
+ */
+@property (nonatomic, assign) VeGameMouseButtonType button;
+/**
+ * 动作类型
+ */
+@property (nonatomic, assign) VeGameMouseActionType action;
+@end
+
+
+ @implementation VeGameMouseMessage
+ @end
 
 @interface VeGameView ()<VeGameManagerDelegate>
 
@@ -72,6 +119,7 @@
     configObj.sk = self.configObj.sk;
     configObj.token = self.configObj.token;
     configObj.userId = self.configObj.userId;
+    configObj.reservedId=self.configObj.reservedId;
     [[VeGameManager sharedInstance] probeStart: configObj];
     
     [VeGameManager sharedInstance].delegate = self;
@@ -132,6 +180,7 @@
         configObj.userId = self.configObj.userId;
         configObj.gameId = self.configObj.gameId;
         configObj.roundId = self.configObj.roundId;
+        configObj.reservedId = self.configObj.reservedId;
         // 启动
         [[VeGameManager sharedInstance] startWithConfig: configObj];
     }
@@ -155,6 +204,7 @@
         obj.token=call.arguments[@"token"];
         obj.userId=call.arguments[@"uid"];
         obj.gameId=call.arguments[@"gameId"];
+        obj.reservedId=call.arguments[@"reservedId"];
         obj.netProbe=false;
         self.configObj=obj;
         [self buildView];
@@ -182,11 +232,43 @@
     // 横竖屏方向回调，注意：SDK只负责横竖屏方向回调，不负责横竖屏的旋转，业务方需根据rotation自行处理
 }
 
+
+
 - (void)gameManager:(VeGameManager *)manager onWarning:(VeGameWarningCode)warnCode
 {
-    // 警告回调
-}
 
+    NSNumber *codeNum = @(warnCode);
+        NSString *toast = @"";
+        if (warnCode == WARNING_START_NO_STOP_BEFORE) {
+            toast = @"10010 启动游戏失败，原因：连续调用了两次Start之间没有调用 Stop";
+        } else if (warnCode == WARNING_START_INVALID_AUTO_RECYCLE_TIME) {
+            toast = @"10019 设置无操作回收服务时长非法";
+        } else if (warnCode == WARNING_START_WITH_FRAMEWORK_NOT_FOUND) {
+            toast = @"10023 伴随程序：全部未找到";
+        } else if (warnCode == WARNING_START_WITH_FRAMEWORK_PART_MATCH) {
+            toast = @"10024 伴随程序：部分找到";
+        } else if (warnCode == WARNING_START_WITH_FRAMEWORK_WRONG_INPUT_FORMAT) {
+            toast = @"10025 伴随程序：格式错误，解析失败";
+        } else if (warnCode == WARNING_QUEUEING_LACK_RESOURCE) {
+            toast = @"10030 还需要继续排队";
+        } else if (warnCode == WARNING_SDK_LACK_OF_LOCATION_PERMISSION) {
+            toast = @"30007 无定位权限";
+        } else if (warnCode == WARNING_VIEWER_METHOD_CALLED) {
+            toast = @"30011 VeBaseRoleTypeViewer 操作被调用";
+        } else if (warnCode == WARNING_LOCAL_ALREADY_SET_BACKGROUND) {
+            toast = @"40037 用户重复调用切换后台接口";
+        } else if (warnCode == WARNING_LOCAL_ALREADY_SET_FOREGROUND) {
+            toast = @"40038 用户重复调用切换前台接口";
+        } else if (warnCode == WARNING_GAME_STOPPED_INGAME_EXIT) {
+            toast = @"40044 游戏实例退出";
+        } else if (warnCode == WARNING_VIDEO_PROFILE_NOT_SUPPORT_CURRENT_PLAN) {
+            toast = @"40052 套餐不支持";
+        } else if (warnCode == WARNING_START_NET_REQUEST_CANCEL) {
+            toast = @"61001 网络请求取消";
+        }
+    
+    [self.methodChannel invokeMethod:@"onWarning" arguments:@{@"code":codeNum,@"message":toast}];
+}
 - (void)gameManager:(VeGameManager *)manager onError:(VeGameErrorCode)errCode
 {
     NSNumber *codeNum = @(errCode);
@@ -261,6 +343,37 @@
     [self.methodChannel invokeMethod:@"onError" arguments:@{@"code":codeNum,@"message":toast}];
   
     // 错误回调
+}
+
+
+- (void)gameManager:(VeGameManager *)manager onQueueUpdate:(NSArray<NSDictionary *> *)queueInfoList
+{
+    [self.methodChannel invokeMethod:@"onQueueUpdate" arguments:queueInfoList];
+    NSLog(@"开始排队：%@", queueInfoList);
+}
+
+- (void)gameManager:(VeGameManager *)manager onQueueSuccessAndStart:(NSInteger)remainTime
+{
+    [self.methodChannel invokeMethod:@"onQueueSuccessAndStart" arguments:@{@"remainTime":@(remainTime),}];
+    NSLog(@"排队完毕%ld", remainTime);
+}
+
+
+#pragma mark - 业务拓展
+
+- (void)configMotion {
+    // 创建 CMMotionManager 对象
+    _motionManager = [[CMMotionManager alloc] init];
+    [_motionManager startGyroUpdatesToQueue:[NSOperationQueue currentQueue] withHandler:^(CMGyroData * _Nullable gyroData, NSError * _Nullable error) {
+        VeGameMouseMessage *move = [VeGameMouseMessage new];
+        move.x = (self.last_motion_x - gyroData.rotationRate.y) * 5;
+        move.y = (self.last_motion_y - gyroData.rotationRate.x) * 5;
+//        move.action = VeGameMouseActionTypeMove;
+//        [[VeGameManager sharedInstance] sendMouseData:move];
+        self.last_motion_x = gyroData.rotationRate.y;
+        self.last_motion_y = gyroData.rotationRate.x;
+        //                button.center = CGPointMake(button.center.x - gyroData.rotationRate.y * 5, button.center.y - gyroData.rotationRate.x * 5);
+    }];
 }
 
 @end
