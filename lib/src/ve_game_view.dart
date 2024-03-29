@@ -17,6 +17,11 @@ class VeGameView extends StatelessWidget {
     this.onQueueSuccessAndStart,
     this.onWarning,
     this.onError,
+    this.onFirstAudioFrame,
+    this.onFirstVideoFrame,
+    this.onStreamStarted,
+    this.onStreamPaused,
+    this.onStreamResumed,
   });
 
   /// 创建实例后的回调
@@ -44,13 +49,32 @@ class VeGameView extends StatelessWidget {
   ///   - iOS https://bytedance.larkoffice.com/docs/doccn6FngLwusSb4L2kkbpwnjEs#6z6cxr
   final void Function(int code, String message)? onError;
 
+  /// 收到音频首帧回调
+  /// [streamId] 远端实例视频流 ID
+  final void Function(String streamId)? onFirstAudioFrame;
+
+  /// 收到视频首帧回调
+  /// [streamId] 远端实例视频流 ID
+  final void Function(String streamId)? onFirstVideoFrame;
+
+  /// 开始播放回调
+  final void Function()? onStreamStarted;
+
+  /// 调用 pause()，暂停播放后的回调
+  final void Function()? onStreamPaused;
+
+  /// 调用 resume() 或 muteAudio(false)，恢复播放后的回调
+  final void Function()? onStreamResumed;
+
   _onPlatformViewCreated(int id) {
     final controller = VeGameViewController(
       id,
-      onQueueUpdate,
-      onQueueSuccessAndStart,
-      onWarning,
-      onError,
+      onQueueUpdate: onQueueUpdate,
+      onQueueSuccessAndStart: onQueueSuccessAndStart,
+      onWarning: onWarning,
+      onError: onError,
+      onFirstAudioFrame: onFirstAudioFrame,
+      onFirstVideoFrame: onFirstVideoFrame,
     );
     if (onCreated != null) {
       onCreated!(controller);
