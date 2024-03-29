@@ -1,5 +1,3 @@
-part of ve_game_view;
-
 /// 启动游戏的配置
 class VeGameConfig {
   /// 用户id

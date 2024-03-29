@@ -1,4 +1,6 @@
-part of ve_game_view;
+import 'package:flutter/services.dart';
+
+import 'constants.dart';
 
 /// 插件级别的MethodChannel
 class VeGameMethodChannel {

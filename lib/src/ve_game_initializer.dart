@@ -1,4 +1,4 @@
-part of ve_game_view;
+import 've_game_method_channel.dart';
 
 class VeGameInitializer {
   /// 初始化sdk

@@ -16,6 +16,8 @@ import com.volcengine.cloudgame.GamePlayConfig;
 import com.volcengine.cloudgame.VeGameEngine;
 import com.volcengine.cloudphone.apiservice.outinterface.IGamePlayerListener;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,6 +60,8 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
         if("start".equals(call.method)) {
             onStartMethodCall(call, result);
+        } else if ("stop".equals(call.method)) {
+            onStopMethodCall(call, result);
         }
     }
 
@@ -104,40 +108,75 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         VeGameEngine.getInstance().start(mGamePlayConfig, this);
         result.success(null);
     }
+    void onStopMethodCall(@NonNull MethodCall call, @NonNull Result result) {
+        VeGameEngine.getInstance().stop();
+    }
 
     @Override
     public void onPlaySuccess(String s, int i, Map<String, String> map, String s1, String s2) {
         Log.i(TAG, "onPlaySuccess");
-        methodChannel.invokeMethod("onPlaySuccess", null);
+        methodChannel.invokeMethod("onPlaySuccess", new HashMap<String, Object>(){{
+            put("roundId", s);
+            put("videoStreamProfileId", i);
+            put("extra", map);
+            put("gameId", s1);
+            put("reservedId", s2);
+        }});
     }
 
     @Override
     public void onError(int i, String s) {
-
+        Log.i(TAG, "onError, i:" + i + ", s: " + s);
+        VeGameEngine.getInstance().stop();
+        methodChannel.invokeMethod("onError", new HashMap<String, Object>(){{
+            put("code", i);
+            put("message", s);
+        }});
     }
 
     @Override
     public void onWarning(int i, String s) {
-
+        Log.i(TAG, "onWarning, i:" + i + ", s: " + s);
+        methodChannel.invokeMethod("onWarning", new HashMap<String, Object>(){{
+            put("code", i);
+            put("message", s);
+        }});
     }
 
     @Override
     public void onNetworkChanged(int i) {
-
+        Log.i(TAG, "onWarning, i:" + i);
+        methodChannel.invokeMethod("onNetworkChanged", new HashMap<String, Integer>(){{
+            put("type", i);
+        }});
     }
 
     @Override
     public void onServiceInit() {
-
+        Log.i(TAG, "onServiceInit");
+        methodChannel.invokeMethod("onServiceInit", null);
     }
 
     @Override
     public void onQueueUpdate(List<QueueInfo> list) {
-
+        Log.i(TAG, "onQueueUpdate");
+        /// 将list中的元素转换为hashmap
+        List<HashMap<String, Object>> queueInfoList = new ArrayList<>();
+        for (QueueInfo queueInfo : list) {
+            HashMap<String, Object> queueInfoMap = new HashMap<>();
+            queueInfoMap.put("total", queueInfo.total);
+            queueInfoMap.put("userPosition", queueInfo.userPosition);
+            queueInfoMap.put("configurationCode", queueInfo.configurationCode);
+            queueInfoList.add(queueInfoMap);
+        }
+        methodChannel.invokeMethod("onQueueUpdate", queueInfoList);
     }
 
     @Override
     public void onQueueSuccessAndStart(int i) {
-
+        Log.i(TAG, "onQueueSuccessAndStart");
+        methodChannel.invokeMethod("onQueueSuccessAndStart", new HashMap<String, Integer>(){{
+            put("remainTime", i);
+        }});
     }
 }
