@@ -11,14 +11,24 @@ class VeGameViewController {
   final void Function(int remainTime)? onQueueSuccessAndStart;
   final void Function(int code, String message)? onWarning;
   final void Function(int code, String message)? onError;
+  final void Function(String streamId)? onFirstAudioFrame;
+  final void Function(String streamId)? onFirstVideoFrame;
+  final void Function()? onStreamStarted;
+  final void Function()? onStreamPaused;
+  final void Function()? onStreamResumed;
 
   VeGameViewController(
-    int viewId,
+    int viewId, {
     this.onQueueUpdate,
     this.onQueueSuccessAndStart,
     this.onWarning,
     this.onError,
-  ) : _channel = MethodChannel('$viewTypeId.$viewId') {
+    this.onFirstAudioFrame,
+    this.onFirstVideoFrame,
+    this.onStreamStarted,
+    this.onStreamPaused,
+    this.onStreamResumed,
+  }) : _channel = MethodChannel('$viewTypeId.$viewId') {
     _channel.setMethodCallHandler(_onHostCall);
   }
 
@@ -50,6 +60,20 @@ class VeGameViewController {
       final code = call.arguments["code"] as int;
       final message = call.arguments["message"] as String;
       onError!(code, message);
+    } else if (call.method == "onFirstAudioFrame" &&
+        onFirstAudioFrame != null) {
+      final id = call.arguments["streamId"];
+      onFirstAudioFrame!(id);
+    } else if (call.method == "onFirstVideoFrame" &&
+        onFirstVideoFrame != null) {
+      final id = call.arguments["streamId"];
+      onFirstVideoFrame!(id);
+    } else if (call.method == "onStreamStarted" && onStreamStarted != null) {
+      onStreamStarted!();
+    } else if (call.method == "onStreamPaused" && onStreamPaused != null) {
+      onStreamPaused!();
+    } else if (call.method == "onStreamResumed" && onStreamResumed != null) {
+      onStreamResumed!();
     }
   }
 }

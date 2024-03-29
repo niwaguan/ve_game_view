@@ -50,7 +50,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
         mContainer.setVisibility(View.VISIBLE);
-        mContainer.setBackgroundColor(Color.rgb(213, 0, 0));
+        mContainer.setBackgroundColor(Color.rgb(255,255,255));
 
         methodChannel = new MethodChannel(binaryMessenger, Constants.GAME_TYPE_ID + "." + id);
         methodChannel.setMethodCallHandler(this);
@@ -204,27 +204,36 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     @Override
     public void onFirstAudioFrame(String s) {
-
+        Log.i(TAG, "onFirstAudioFrame");
+        methodChannel.invokeMethod("onFirstAudioFrame", new HashMap<String, String>(){{
+            put("streamId", s);
+        }});
     }
 
     @Override
     public void onFirstRemoteVideoFrame(String s) {
-
+        Log.i(TAG, "onFirstVideoFrame");
+        methodChannel.invokeMethod("onFirstVideoFrame", new HashMap<String, String>(){{
+            put("streamId", s);
+        }});
     }
 
     @Override
     public void onStreamStarted() {
-
+        Log.i(TAG, "onStreamStarted");
+        methodChannel.invokeMethod("onStreamStarted", null);
     }
 
     @Override
     public void onStreamPaused() {
-
+        Log.i(TAG, "onStreamPaused");
+        methodChannel.invokeMethod("onStreamPaused", null);
     }
 
     @Override
     public void onStreamResumed() {
-
+        Log.i(TAG, "onStreamResumed");
+        methodChannel.invokeMethod("onStreamResumed", null);
     }
 
     @Override
