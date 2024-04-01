@@ -3,6 +3,7 @@ package cn.stormyang.ve_game_view.ve_game_view;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
@@ -44,13 +45,24 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     private Integer roundId = 0;
 
     VeGameView(@NonNull Context context, int id, @Nullable Map<String, Object> creationParams, @NonNull BinaryMessenger binaryMessenger, Activity activity) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getParams();
+            context.getAttributionSource();
+        }
         mContainer = new FrameLayout(activity);
         mContainer.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
+        mContainer.setBackgroundColor(Color.rgb(255,0,0));
         mContainer.setVisibility(View.VISIBLE);
-        mContainer.setBackgroundColor(Color.rgb(255,255,255));
+
+        // test
+        TextView textView = new TextView(context);
+        mContainer.addView(textView);
+        textView.setTextSize(20);
+        textView.setBackgroundColor(Color.rgb(0, 0, 255));
+        textView.setText("Rendered on a native Android view (id: " + id + ")");
 
         methodChannel = new MethodChannel(binaryMessenger, Constants.GAME_TYPE_ID + "." + id);
         methodChannel.setMethodCallHandler(this);
@@ -237,8 +249,21 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     }
 
     @Override
-    public void onStreamStats(StreamStats streamStats) {
-
+    public void onStreamStats(StreamStats stats) {
+        Log.i(TAG, "onStreamStats");
+        methodChannel.invokeMethod("onStreamStats", new HashMap<String, Object>(){{
+            put("receivedVideoBitRate", stats.getReceivedVideoBitRate());
+            put("receivedAudioBitRate", stats.getReceivedAudioBitRate());
+            put("decoderOutputFrameRate", stats.getDecoderOutputFrameRate());
+            put("rendererOutputFrameRate", stats.getRendererOutputFrameRate());
+            put("receivedResolutionHeight", stats.getReceivedResolutionHeight());
+            put("receivedResolutionWidth", stats.getReceivedResolutionWidth());
+            put("videoLossRate", stats.getVideoLossRate());
+            put("rtt", stats.getRtt());
+            put("stallCount", stats.getStallCount());
+            put("stallDuration", stats.getStallDuration());
+            put("frozenRate", stats.getFrozenRate());
+        }});
     }
 
     @Override
@@ -248,22 +273,35 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     @Override
     public void onStreamConnectionStateChanged(int i) {
-
+        Log.i(TAG, "onStreamConnectionStateChanged");
+        methodChannel.invokeMethod("onStreamConnectionStateChanged", new HashMap<String, Integer>(){{
+            put("stats", i);
+        }});
     }
 
     @Override
     public void onDetectDelay(long l) {
-
+        Log.i(TAG, "onDetectDelay");
+        methodChannel.invokeMethod("onDetectDelay", new HashMap<String, Number>(){{
+            put("elapse", l);
+        }});
     }
 
     @Override
     public void onRotation(int i) {
-
+        Log.i(TAG, "onRotation");
+        methodChannel.invokeMethod("onRotation", new HashMap<String, Number>(){{
+            put("rotation", i);
+        }});
     }
 
     @Override
     public void onPodExit(int i, String s) {
-
+        Log.i(TAG, "onPodExit");
+        methodChannel.invokeMethod("onPodExit", new HashMap<String, Object>(){{
+            put("reason", i);
+            put("msg", s);
+        }});
     }
 
     @Override

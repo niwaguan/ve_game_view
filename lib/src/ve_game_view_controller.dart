@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import 'constants.dart';
+import 'model/stream_stats.dart';
 import 'model/ve_game_config.dart';
 import 'model/ve_game_queue_info.dart';
 
@@ -16,6 +17,12 @@ class VeGameViewController {
   final void Function()? onStreamStarted;
   final void Function()? onStreamPaused;
   final void Function()? onStreamResumed;
+  final void Function(StreamStats streamStats)? onStreamStats;
+  final void Function(int state)? onStreamConnectionStateChanged;
+  final void Function(int elapse)? onDetectDelay;
+  final void Function(int rotation)? onRotation;
+  final void Function(int reason, String msg)? onPodExit;
+  final void Function(int quality)? onNetworkQuality;
 
   VeGameViewController(
     int viewId, {
@@ -28,6 +35,12 @@ class VeGameViewController {
     this.onStreamStarted,
     this.onStreamPaused,
     this.onStreamResumed,
+    this.onStreamStats,
+    this.onStreamConnectionStateChanged,
+    this.onDetectDelay,
+    this.onRotation,
+    this.onPodExit,
+    this.onNetworkQuality,
   }) : _channel = MethodChannel('$viewTypeId.$viewId') {
     _channel.setMethodCallHandler(_onHostCall);
   }
@@ -74,6 +87,26 @@ class VeGameViewController {
       onStreamPaused!();
     } else if (call.method == "onStreamResumed" && onStreamResumed != null) {
       onStreamResumed!();
+    } else if (call.method == "onStreamStats" && onStreamStats != null) {
+      final stats = StreamStats.fromJson(call.arguments);
+      onStreamStats!(stats);
+    } else if (call.method == "onStreamConnectionStateChanged" &&
+        onStreamConnectionStateChanged != null) {
+      final state = call.arguments["state"] as int;
+      onStreamConnectionStateChanged!(state);
+    } else if (call.method == "onDetectDelay" && onDetectDelay != null) {
+      final elapse = call.arguments["elapse"] as int;
+      onDetectDelay!(elapse);
+    } else if (call.method == "onRotation" && onRotation != null) {
+      final rotation = call.arguments["rotation"] as int;
+      onRotation!(rotation);
+    } else if (call.method == "onPodExit" && onPodExit != null) {
+      final reason = call.arguments["reason"] as int;
+      final msg = call.arguments["msg"] as String;
+      onPodExit!(reason, msg);
+    } else if (call.method == "onNetworkQuality" && onNetworkQuality != null) {
+      final quality = call.arguments["quality"] as int;
+      onNetworkQuality!(quality);
     }
   }
 }
