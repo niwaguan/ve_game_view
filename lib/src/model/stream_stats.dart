@@ -17,14 +17,19 @@ class StreamStats {
   /// 远端视频流宽度
   final int receivedResolutionWidth;
 
+  /// 视频丢包率
   final double videoLossRate;
 
+  /// 客户端与服务端往返时延（单位 ms）
   final int rtt;
 
+  /// 卡顿次数
   final int stallCount;
 
+  /// 卡顿时长（统计周期内的视频卡顿总时长，单位 ms）
   final int stallDuration;
 
+  /// 顿率（视频卡顿的累计时长占视频总有效时长的百分比）
   final int frozenRate;
 
   StreamStats(
@@ -39,4 +44,18 @@ class StreamStats {
       required this.stallCount,
       required this.stallDuration,
       required this.frozenRate});
+
+  StreamStats.fromJson(Map<String, Object> obj)
+      : receivedVideoBitRate = obj["receivedVideoBitRate"] as int,
+        receivedAudioBitRate = obj["receivedAudioBitRate"] as int,
+        decoderOutputFrameRate = obj["decoderOutputFrameRate"] as int,
+        rendererOutputFrameRate = obj["rendererOutputFrameRate"] as int,
+        receivedResolutionHeight = obj["receivedResolutionHeight"] as int,
+        receivedResolutionWidth = obj["receivedResolutionWidth"] as int,
+        videoLossRate = obj["videoLossRate"] as double,
+        rtt = obj["rtt"] as int,
+        stallCount = obj["stallCount"] as int,
+        stallDuration = obj["stallDuration"] as int,
+        frozenRate = obj["frozenRate"] as int
+  ;
 }
