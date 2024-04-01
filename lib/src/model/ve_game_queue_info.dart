@@ -13,7 +13,7 @@ class QueueInfo {
       required this.userPosition,
       required this.total});
 
-  QueueInfo.fromJson(Map<String, Object> obj)
+  QueueInfo.fromJson(Map<Object?, Object?> obj)
       : configurationCode = obj["configurationCode"] as String,
         userPosition = obj["userPosition"] as int,
         total = obj["total"] as int;
