@@ -45,7 +45,7 @@ class StreamStats {
       required this.stallDuration,
       required this.frozenRate});
 
-  StreamStats.fromJson(Map<String, Object> obj)
+  StreamStats.fromJson(Map<Object?, Object?> obj)
       : receivedVideoBitRate = obj["receivedVideoBitRate"] as int,
         receivedAudioBitRate = obj["receivedAudioBitRate"] as int,
         decoderOutputFrameRate = obj["decoderOutputFrameRate"] as int,
