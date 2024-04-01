@@ -215,16 +215,19 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 - (void)receiveAppWillTerminateNotification:(NSNotification *)notification
 {
     [[VeGameManager sharedInstance] stop];
+    [self.methodChannel invokeMethod:@"onStreamStarted" arguments:nil];
 }
 
 - (void)receiveAppDidEnterBackgroundNotification:(NSNotification *)notification
 {
     [[VeGameManager sharedInstance] switchPaused: YES];
+    [self.methodChannel invokeMethod:@"onStreamPaused" arguments:nil];
 }
 
 - (void)receiveAppWillEnterForegroundNotification:(NSNotification *)notification
 {
     [[VeGameManager sharedInstance] switchPaused: NO];
+    [self.methodChannel invokeMethod:@"onStreamResumed" arguments:nil];
 }
 
 - (void)gameManager:(VeGameManager *)manager changedDeviceRotation:(NSInteger)rotation
@@ -232,7 +235,30 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     // 横竖屏方向回调，注意：SDK只负责横竖屏方向回调，不负责横竖屏的旋转，业务方需根据rotation自行处理
 }
 
-
+- (void)gameManager:(VeGameManager *)manager onMessageChannleError:(VeGameErrorCode)errCode
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSNumber *codeNum = @(errCode);
+        NSString *toast = @"";
+        if (errCode == ERROR_MESSAGE_GENERAL) {
+            toast = @"50000 消息通道通用错误";
+        } else if (errCode == ERROR_MESSAGE_NOT_CONNECTED) {
+            toast = @"50001 消息通道无连接";
+        } else if (errCode == ERROR_MESSAGE_FAILED_TO_PARSE_MSG) {
+            toast = @"50002 消息通道数据解析失败";
+        } else if (errCode == ERROR_MESSAGE_CHANNEL_UID_ILLEGAL) {
+            toast = @"50003 消息通道ID非法";
+        } else if (errCode == ERROR_MESSAGE_OVER_SIZED) {
+            toast = @"50007 消息体超过60kb";
+        } else if (errCode == ERROR_MESSAGE_TIMEOUT_ILLEGAL) {
+            toast = @"50009 消息发送超时时间非法";
+        }
+        if (toast.length > 0) {
+            
+            [self.methodChannel invokeMethod:@"onMessageError" arguments:@{@"code":codeNum,@"message":toast}];
+        }
+    });
+}
 
 - (void)gameManager:(VeGameManager *)manager onWarning:(VeGameWarningCode)warnCode
 {
@@ -345,6 +371,58 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     // 错误回调
 }
 
+- (void)gameManager:(VeGameManager *)manager onPodExit:(VeGameErrorCode)errCode
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+    
+        NSNumber *codeNum = @(errCode);
+        NSString *toast = @"";
+        if (errCode == ERROR_GAME_ABNORMAL_EXIT) {
+            toast = @"40000 云端游戏异常退出";
+        } else if (errCode == ERROR_GAME_CRASH) {
+            toast = @"40001 云端游戏崩溃";
+        } else if (errCode == ERROR_GAME_STOPPED_IDLE) {
+            toast = @"40004 长期未操作，云端游戏自动断开";
+        } else if (errCode == ERROR_GAME_STOPPED_API) {
+            toast = @"40006 服务端主动停止云端游戏";
+        } else if (errCode == ERROR_POD_STOPPED_BACKGROUND_TIMEOUT) {
+            toast = @"40008 云端后台超时";
+        } else if (errCode == ERROR_POD_EXIT_GENERAL) {
+            toast = @"40009 云端游戏退出";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_NORMAL) {
+            toast = @"40023 实例正常释放";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_NO_USER) {
+            toast = @"40024 实例异常释放：客户端超时未加入";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_OS_MISSED) {
+            toast = @"40026 实例异常释放：游戏镜像缺失";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_GAME_START_FAILURE) {
+            toast = @"40027 实例异常释放：游戏启动失败";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_STREAMING_ERROR) {
+            toast = @"40028 实例异常释放：rtc推流成功，但是推流过程中出现异常";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_3RD_APP_MISSED) {
+            toast = @"40029 实例异常释放：伴随包镜像缺失";
+        } else if (errCode == MESSAGE_3RD_APP_START_FAILURE) {
+            toast = @"40031 伴随包启动失败";
+        } else if (errCode == MESSAGE_CLOUD_GAME_CRASH_OFTEN) {
+            toast = @"40032 游戏频繁崩溃";
+        } else if (errCode == MESSAGE_GAME_STEAMING_FAILURE) {
+            toast = @"40033 Rtc推流不成功";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_INVALID_PARAMETER) {
+            toast = @"40047 Pod收到的参数非法";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_HEART_BEAT_TIMEOUT) {
+            toast = @"40048 实例离线";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_INGAME_EXIT) {
+            toast = @"40049 游戏侧主动退出";
+        } else if (errCode == MESSAGE_RESOURCE_RELEASED_START_ERROR_ARCHIVE_DOWNLOAD_FAILURE) {
+            toast = @"40050 存档下载失败，Pod启动失败";
+        } else if (errCode == ERROR_GAME_EXIT_INTERNAL_ERROR) {
+            toast = @"40051 内部错误，云服务重启或GS重启";
+        }
+        if (toast.length > 0) {
+            [self.methodChannel invokeMethod:@"onPodExit" arguments:@{@"code":codeNum,@"message":toast}];
+        }
+    });
+}
 
 - (void)gameManager:(VeGameManager *)manager onQueueUpdate:(NSArray<NSDictionary *> *)queueInfoList
 {
@@ -359,6 +437,22 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 }
 
 
+
+#pragma mark - VeGameManagerDelegate
+
+- (void)firstRemoteAudioFrameArrivedFromGameManager:(VeGameManager *)manager
+{
+    NSLog(@"--- 收到首帧音频 ---");
+    [self.methodChannel invokeMethod:@"onFirstAudioFrame" arguments:nil];
+}
+
+- (void)firstRemoteVideoFrameArrivedFromGameManager:(VeGameManager *)manager
+{
+    NSLog(@"--- 收到首帧视频 ---");
+    [self.methodChannel invokeMethod:@"onFirstVideoFrame" arguments:nil];
+}
+
+
 #pragma mark - 业务拓展
 
 - (void)configMotion {
@@ -368,12 +462,13 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         VeGameMouseMessage *move = [VeGameMouseMessage new];
         move.x = (self.last_motion_x - gyroData.rotationRate.y) * 5;
         move.y = (self.last_motion_y - gyroData.rotationRate.x) * 5;
-//        move.action = VeGameMouseActionTypeMove;
-//        [[VeGameManager sharedInstance] sendMouseData:move];
+
+        [[VeGameManager sharedInstance] sendMoveEventWithAbsX:gyroData.rotationRate.x absY:gyroData.rotationRate.y deltaX:self.last_motion_x deltaY:self.last_motion_y];
         self.last_motion_x = gyroData.rotationRate.y;
         self.last_motion_y = gyroData.rotationRate.x;
         //                button.center = CGPointMake(button.center.x - gyroData.rotationRate.y * 5, button.center.y - gyroData.rotationRate.x * 5);
     }];
 }
+
 
 @end
