@@ -20,16 +20,16 @@ class StreamStats {
   /// 视频丢包率
   final double videoLossRate;
 
-  /// 客户端与服务端往返时延（单位 ms）
+  /// 客户端与服务端往返时延（单位 ms） ios 是视频流延迟
   final int rtt;
 
-  /// 卡顿次数
+  /// 卡顿次数 ios 是视频次数
   final int stallCount;
 
-  /// 卡顿时长（统计周期内的视频卡顿总时长，单位 ms）
+  /// 卡顿时长（统计周期内的视频卡顿总时长，单位 ms）  ios是视频卡顿时长
   final int stallDuration;
 
-  /// 顿率（视频卡顿的累计时长占视频总有效时长的百分比）
+  /// 顿率（视频卡顿的累计时长占视频总有效时长的百分比） ios是远端视频接收码率
   final int frozenRate;
 
   StreamStats(
@@ -56,6 +56,5 @@ class StreamStats {
         rtt = obj["rtt"] as int,
         stallCount = obj["stallCount"] as int,
         stallDuration = obj["stallDuration"] as int,
-        frozenRate = obj["frozenRate"] as int
-  ;
+        frozenRate = obj["frozenRate"] as int;
 }

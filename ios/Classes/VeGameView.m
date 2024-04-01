@@ -71,8 +71,8 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 @end
 
 
- @implementation VeGameMouseMessage
- @end
+@implementation VeGameMouseMessage
+@end
 
 @interface VeGameView ()<VeGameManagerDelegate>
 
@@ -103,15 +103,16 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     
     typeof(view) __weak weak = view;
     [view.methodChannel setMethodCallHandler:^(FlutterMethodCall * _Nonnull call, FlutterResult  _Nonnull result) {
-
-                  
+        
+        
         [weak onFlutterMethodCall:call result:result];
     }];
     return view;
 }
 
+
 - (void)buildView {
-//    [self configSubView];
+    //    [self configSubView];
     self.rotation = 0;
     [VeGameManager sharedInstance].containerView = self.iView;
     VeGameConfigObject *configObj = [VeGameConfigObject new];
@@ -125,7 +126,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     [VeGameManager sharedInstance].delegate = self;
     _iView.backgroundColor = [UIColor redColor];
     NSLog(@"View frame: %@", NSStringFromCGRect(_iView.frame));
-
+    
     [[NSNotificationCenter defaultCenter] addObserver: self
                                              selector: @selector(receiveAppWillTerminateNotification:)
                                                  name: UIApplicationWillTerminateNotification
@@ -139,7 +140,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
                                                  name: UIApplicationWillEnterForegroundNotification
                                                object: nil];
     [self.iView addObserver:self forKeyPath:@"frame" options:NSKeyValueObservingOptionNew context:nil];
-
+    [self startGame];
     
 }
 // 然后实现观察者方法
@@ -148,21 +149,22 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
                         change:(NSDictionary<NSKeyValueChangeKey,id> *)change
                        context:(void *)context {
     if (object == self.view && [keyPath isEqualToString:@"frame"]) {
-        CGRect newFrame = [[change objectForKey:NSKeyValueChangeNewKey] CGRectValue];
-        
+//        NSLog(@"##############");
+        //        CGRect newFrame = [[change objectForKey:NSKeyValueChangeNewKey] CGRectValue];
         // 在这里可以执行你想要做的操作，比如重新布局等
-        [self startGame];
+//        [self startGame];
+        
     }
 }
 - (void)configSubView
 {
     // 画布
-//    self.iView = ({
-//        UIView *containerView = [[UIView alloc] init];
-//        containerView.backgroundColor = [UIColor blackColor];
-//        [self.view addSubview: containerView];
-//        containerView;
-//    });
+    //    self.iView = ({
+    //        UIView *containerView = [[UIView alloc] init];
+    //        containerView.backgroundColor = [UIColor blackColor];
+    //        [self.view addSubview: containerView];
+    //        containerView;
+    //    });
 }
 - (nonnull UIView *)view {
     return _iView;
@@ -181,6 +183,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         configObj.gameId = self.configObj.gameId;
         configObj.roundId = self.configObj.roundId;
         configObj.reservedId = self.configObj.reservedId;
+        configObj.sessionMode=2;
         // 启动
         [[VeGameManager sharedInstance] startWithConfig: configObj];
     }
@@ -188,7 +191,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 
 
 - (void)onFlutterMethodCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
-
+    
     NSLog(@"%@", call.arguments);
     if ([@"start" isEqualToString:call.method]) {
         self.roundIdCount++;
@@ -230,10 +233,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     [self.methodChannel invokeMethod:@"onStreamResumed" arguments:nil];
 }
 
-- (void)gameManager:(VeGameManager *)manager changedDeviceRotation:(NSInteger)rotation
-{
-    // 横竖屏方向回调，注意：SDK只负责横竖屏方向回调，不负责横竖屏的旋转，业务方需根据rotation自行处理
-}
+
 
 - (void)gameManager:(VeGameManager *)manager onMessageChannleError:(VeGameErrorCode)errCode
 {
@@ -259,39 +259,86 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         }
     });
 }
+- (void)gameManager:(VeGameManager *)manager connectionChangedToState:(VeBaseConnectionState)state{
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSNumber *stateNum = @(state);
+        [self.methodChannel invokeMethod:@"onStreamConnectionStateChanged" arguments:@{@"state":stateNum}];
+        
+    });
+}
+//本地流数据统计
+- (void)gameManager:(VeGameManager *)manager onLocalStreamStats:(VeBaseLocalStreamStats *)stats
+{
+//     NSLog(@"local stream stats: %@", [stats description]);
+    
+}
+//远端流数据统计
+- (void)gameManager:(VeGameManager *)manager onRemoteStreamStats:(VeBaseRemoteStreamStats *)stats
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+
+        
+        
+        [self.methodChannel invokeMethod:@"onStreamStats" arguments:@{@"receivedVideoBitRate":@(stats.receivedVideoKBitrate),@"receivedAudioBitRate":@(stats.receivedAudioKBitrate),@"decoderOutputFrameRate":@(stats.decoderOutputFrameRate),@"rendererOutputFrameRate":@(stats.rendererOutputFrameRate),@"receivedResolutionHeight":@(stats.height),@"receivedResolutionWidth":@(stats.width),@"videoLossRate":@(stats.videoLossRate),@"rtt":@(stats.videoRtt),@"stallCount":@(stats.videoStallCount),@"stallDuration":@(stats.videoStallDuration),@"frozenRate":@(stats.receivedVideoKBitrate)}];
+
+    });
+}
+/// 本地“操作延迟”回调
+/// - Parameters:
+///   - manager: VeGameManager 对象
+///   - delayTime: 时间 ms
+- (void)gameManager:(VeGameManager *)manager operationDelay:(NSInteger)delayTime{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        
+        [self.methodChannel invokeMethod:@"onDetectDelay" arguments:@{@"elapse":@(delayTime)}];
+        
+    });
+}
+/// 远端“旋转”回调
+/// - Parameters:
+///   - manager: VeGameManager 对象
+///   - rotation: 旋转度
+- (void)gameManager:(VeGameManager *)manager changedDeviceRotation:(NSInteger)rotation{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        
+        [self.methodChannel invokeMethod:@"onRotation" arguments:@{@"rotation":@(rotation)}];
+        
+    });
+}
 
 - (void)gameManager:(VeGameManager *)manager onWarning:(VeGameWarningCode)warnCode
 {
-
+    
     NSNumber *codeNum = @(warnCode);
-        NSString *toast = @"";
-        if (warnCode == WARNING_START_NO_STOP_BEFORE) {
-            toast = @"10010 启动游戏失败，原因：连续调用了两次Start之间没有调用 Stop";
-        } else if (warnCode == WARNING_START_INVALID_AUTO_RECYCLE_TIME) {
-            toast = @"10019 设置无操作回收服务时长非法";
-        } else if (warnCode == WARNING_START_WITH_FRAMEWORK_NOT_FOUND) {
-            toast = @"10023 伴随程序：全部未找到";
-        } else if (warnCode == WARNING_START_WITH_FRAMEWORK_PART_MATCH) {
-            toast = @"10024 伴随程序：部分找到";
-        } else if (warnCode == WARNING_START_WITH_FRAMEWORK_WRONG_INPUT_FORMAT) {
-            toast = @"10025 伴随程序：格式错误，解析失败";
-        } else if (warnCode == WARNING_QUEUEING_LACK_RESOURCE) {
-            toast = @"10030 还需要继续排队";
-        } else if (warnCode == WARNING_SDK_LACK_OF_LOCATION_PERMISSION) {
-            toast = @"30007 无定位权限";
-        } else if (warnCode == WARNING_VIEWER_METHOD_CALLED) {
-            toast = @"30011 VeBaseRoleTypeViewer 操作被调用";
-        } else if (warnCode == WARNING_LOCAL_ALREADY_SET_BACKGROUND) {
-            toast = @"40037 用户重复调用切换后台接口";
-        } else if (warnCode == WARNING_LOCAL_ALREADY_SET_FOREGROUND) {
-            toast = @"40038 用户重复调用切换前台接口";
-        } else if (warnCode == WARNING_GAME_STOPPED_INGAME_EXIT) {
-            toast = @"40044 游戏实例退出";
-        } else if (warnCode == WARNING_VIDEO_PROFILE_NOT_SUPPORT_CURRENT_PLAN) {
-            toast = @"40052 套餐不支持";
-        } else if (warnCode == WARNING_START_NET_REQUEST_CANCEL) {
-            toast = @"61001 网络请求取消";
-        }
+    NSString *toast = @"";
+    if (warnCode == WARNING_START_NO_STOP_BEFORE) {
+        toast = @"10010 启动游戏失败，原因：连续调用了两次Start之间没有调用 Stop";
+    } else if (warnCode == WARNING_START_INVALID_AUTO_RECYCLE_TIME) {
+        toast = @"10019 设置无操作回收服务时长非法";
+    } else if (warnCode == WARNING_START_WITH_FRAMEWORK_NOT_FOUND) {
+        toast = @"10023 伴随程序：全部未找到";
+    } else if (warnCode == WARNING_START_WITH_FRAMEWORK_PART_MATCH) {
+        toast = @"10024 伴随程序：部分找到";
+    } else if (warnCode == WARNING_START_WITH_FRAMEWORK_WRONG_INPUT_FORMAT) {
+        toast = @"10025 伴随程序：格式错误，解析失败";
+    } else if (warnCode == WARNING_QUEUEING_LACK_RESOURCE) {
+        toast = @"10030 还需要继续排队";
+    } else if (warnCode == WARNING_SDK_LACK_OF_LOCATION_PERMISSION) {
+        toast = @"30007 无定位权限";
+    } else if (warnCode == WARNING_VIEWER_METHOD_CALLED) {
+        toast = @"30011 VeBaseRoleTypeViewer 操作被调用";
+    } else if (warnCode == WARNING_LOCAL_ALREADY_SET_BACKGROUND) {
+        toast = @"40037 用户重复调用切换后台接口";
+    } else if (warnCode == WARNING_LOCAL_ALREADY_SET_FOREGROUND) {
+        toast = @"40038 用户重复调用切换前台接口";
+    } else if (warnCode == WARNING_GAME_STOPPED_INGAME_EXIT) {
+        toast = @"40044 游戏实例退出";
+    } else if (warnCode == WARNING_VIDEO_PROFILE_NOT_SUPPORT_CURRENT_PLAN) {
+        toast = @"40052 套餐不支持";
+    } else if (warnCode == WARNING_START_NET_REQUEST_CANCEL) {
+        toast = @"61001 网络请求取消";
+    }
     
     [self.methodChannel invokeMethod:@"onWarning" arguments:@{@"code":codeNum,@"message":toast}];
 }
@@ -367,14 +414,14 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         toast = @"60002 网络请求失败";
     }
     [self.methodChannel invokeMethod:@"onError" arguments:@{@"code":codeNum,@"message":toast}];
-  
+    
     // 错误回调
 }
 
 - (void)gameManager:(VeGameManager *)manager onPodExit:(VeGameErrorCode)errCode
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-    
+        
         NSNumber *codeNum = @(errCode);
         NSString *toast = @"";
         if (errCode == ERROR_GAME_ABNORMAL_EXIT) {
@@ -419,8 +466,20 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
             toast = @"40051 内部错误，云服务重启或GS重启";
         }
         if (toast.length > 0) {
-            [self.methodChannel invokeMethod:@"onPodExit" arguments:@{@"code":codeNum,@"message":toast}];
+            [self.methodChannel invokeMethod:@"onPodExit" arguments:@{@"reason":codeNum,@"msg":toast}];
         }
+    });
+}
+/// “网络质量”回调
+/// - Parameters:
+///   - manager: VeGameManager 对象
+///   - quality: 网络质量
+- (void)gameManager:(VeGameManager *)manager onNetworkQuality:(VeBaseNetworkQuality)quality{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        
+        
+        [self.methodChannel invokeMethod:@"onNetworkQuality" arguments:@{@"quality":@(quality)}];
+        
     });
 }
 
@@ -462,7 +521,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         VeGameMouseMessage *move = [VeGameMouseMessage new];
         move.x = (self.last_motion_x - gyroData.rotationRate.y) * 5;
         move.y = (self.last_motion_y - gyroData.rotationRate.x) * 5;
-
+        
         [[VeGameManager sharedInstance] sendMoveEventWithAbsX:gyroData.rotationRate.x absY:gyroData.rotationRate.y deltaX:self.last_motion_x deltaY:self.last_motion_y];
         self.last_motion_x = gyroData.rotationRate.y;
         self.last_motion_y = gyroData.rotationRate.x;
