@@ -12,7 +12,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.volcengine.androidcloud.common.model.StreamStats;
+import com.volcengine.cloudcore.common.mode.KeySateType;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
+import com.volcengine.cloudcore.common.mode.MouseKey;
 import com.volcengine.cloudcore.common.mode.QueueInfo;
 import com.volcengine.cloudcore.common.mode.StreamType;
 import com.volcengine.cloudgame.GamePlayConfig;
@@ -24,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
@@ -84,6 +87,12 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
             onStartMethodCall(call, result);
         } else if ("stop".equals(call.method)) {
             onStopMethodCall(call, result);
+        } else if ("sendMouseMovement".equals(call.method)) {
+            onMouseMovementCall(call, result);
+        } else if ("sendMousePosition".equals(call.method)) {
+            onMousePositionCall(call, result);
+        } else if("sendMouseKeyChanged".equals(call.method)) {
+            onMouseKeyChanged(call, result);
         }
     }
 
@@ -100,22 +109,22 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         }
         String ak = call.argument("ak");
         if (ak == null || ak.isEmpty()) {
-            result.error("3", "'ak' is absent", null);
+            result.error("2", "'ak' is absent", null);
             return;
         }
         String sk = call.argument("sk");
         if (sk == null || sk.isEmpty()) {
-            result.error("4", "'sk' is absent", null);
+            result.error("2", "'sk' is absent", null);
             return;
         }
         String token = call.argument("token");
         if (token == null || token.isEmpty()) {
-            result.error("5", "'token' is absent", null);
+            result.error("2", "'token' is absent", null);
             return;
         }
         String gameId = call.argument("gameId");
         if (gameId == null || gameId.isEmpty()) {
-            result.error("6", "'gameId' is absent", null);
+            result.error("2", "'gameId' is absent", null);
             return;
         }
         String roundId = call.argument("roundId");
@@ -146,6 +155,69 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     }
     void onStopMethodCall(@NonNull MethodCall call, @NonNull Result result) {
         VeGameEngine.getInstance().stop();
+    }
+
+    void onMouseKeyChanged(@NonNull MethodCall call, @NonNull Result result) {
+        if (!(call.arguments instanceof Map)) {
+            result.error("1", "Arguments Type Error.", "This method require a argument of Map, but you give a " + call.arguments.getClass());
+            return;
+        }
+        Integer key = call.argument("key");
+        if (key == null) {
+            result.error("2", "'key' is absent", null);
+            return;
+        }
+        Boolean active = call.argument("stats");
+        if (active == null) {
+            result.error("2", "'stats' is absent", null);
+            return;
+        }
+        int _key = MouseKey.MouseKeyLBUTTON_VALUE;
+        if (key == 1) {
+            _key = MouseKey.MouseKeyMBUTTON_VALUE;
+        } else if (key == 2) {
+            _key = MouseKey.MouseKeyRBUTTON_VALUE;
+        } else if (key == 3) {
+            _key = MouseKey.MouseKeyXBUTTON1_VALUE;
+        } else if (key == 4) {
+            _key = MouseKey.MouseKeyXBUTTON2_VALUE;
+        }
+
+        Objects.requireNonNull(VeGameEngine.getInstance().getIODeviceManager()).sendInputMouseKey(_key, active ? KeySateType.DOWN : KeySateType.UP);
+    }
+    void onMouseMovementCall(@NonNull MethodCall call, @NonNull Result result) {
+        if (!(call.arguments instanceof Map)) {
+            result.error("1", "Arguments Type Error.", "This method require a argument of Map, but you give a " + call.arguments.getClass());
+            return;
+        }
+        Number deltaX = call.argument("deltaX");
+        if (deltaX == null) {
+            result.error("2", "'deltaX' is absent", null);
+            return;
+        }
+        Number deltaY = call.argument("deltaY");
+        if (deltaY == null) {
+            result.error("2", "'deltaY' is absent", null);
+            return;
+        }
+        Objects.requireNonNull(VeGameEngine.getInstance().getIODeviceManager()).sendInputMouseMove(deltaY.intValue(), deltaY.intValue());
+    }
+    void onMousePositionCall(@NonNull MethodCall call, @NonNull Result result) {
+        if (!(call.arguments instanceof Map)) {
+            result.error("1", "Arguments Type Error.", "This method require a argument of Map, but you give a " + call.arguments.getClass());
+            return;
+        }
+        Number x = call.argument("x");
+        if (x == null) {
+            result.error("2", "'x' is absent", null);
+            return;
+        }
+        Number y = call.argument("y");
+        if (y == null) {
+            result.error("2", "'y' is absent", null);
+            return;
+        }
+        Objects.requireNonNull(VeGameEngine.getInstance().getIODeviceManager()).sendInputCursorPos(x.floatValue(), y.floatValue());
     }
 
     @Override

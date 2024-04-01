@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:ve_game_view/src/model/ve_game_mouse_key.dart';
 
 import 'constants.dart';
 import 'model/stream_stats.dart';
@@ -55,7 +56,30 @@ class VeGameViewController {
   }
 
   /// 发送鼠标按键事件
-  sendMouseKeyChanged() {}
+  /// [key] 按键类型
+  /// [stats] 状态。0 按下，1 抬起
+  sendMouseKeyChanged(VeGameMouseKey key, int stats) {
+    _channel.invokeMethod("sendMouseKeyChanged", {
+      "key": key.index,
+      "stats": stats == 0,
+    });
+  }
+
+  /// 发送鼠标移动事件。差量值。
+  sendMouseMovement(double deltaX, double deltaY) {
+    _channel.invokeMethod("sendMouseMovement", {
+      "deltaX": deltaX,
+      "deltaY": deltaY,
+    });
+  }
+
+  /// 发送鼠标绝对位置。值为 0 ~ 1
+  sendMousePosition(double x, double y) {
+    _channel.invokeMethod("sendMousePosition", {
+      "x": x,
+      "y": y,
+    });
+  }
 
   /// 响应平台调用
   Future<dynamic> _onHostCall(MethodCall call) async {
