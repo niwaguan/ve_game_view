@@ -3,8 +3,6 @@ package cn.stormyang.ve_game_view.ve_game_view;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
-import android.os.Build;
-import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -30,8 +28,8 @@ import java.util.Map;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
+import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.platform.PlatformView;
 
 public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerListener, IStreamListener {
@@ -45,24 +43,24 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     private Integer roundId = 0;
 
     VeGameView(@NonNull Context context, int id, @Nullable Map<String, Object> creationParams, @NonNull BinaryMessenger binaryMessenger, Activity activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.getParams();
-            context.getAttributionSource();
-        }
         mContainer = new FrameLayout(activity);
         mContainer.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+                FrameLayout.LayoutParams.WRAP_CONTENT
         ));
         mContainer.setBackgroundColor(Color.rgb(255,0,0));
         mContainer.setVisibility(View.VISIBLE);
 
         // test
-        TextView textView = new TextView(context);
-        mContainer.addView(textView);
-        textView.setTextSize(20);
-        textView.setBackgroundColor(Color.rgb(0, 0, 255));
-        textView.setText("Rendered on a native Android view (id: " + id + ")");
+//        TextView textView = new TextView(activity);
+//        mContainer.addView(textView);
+//        textView.setLayoutParams(new FrameLayout.LayoutParams(
+//                FrameLayout.LayoutParams.MATCH_PARENT,
+//                FrameLayout.LayoutParams.WRAP_CONTENT
+//        ));
+//        textView.setTextSize(20);
+//        textView.setBackgroundColor(Color.rgb(0, 0, 255));
+//        textView.setText("Rendered on a native Android view (id: " + id + ")");
 
         methodChannel = new MethodChannel(binaryMessenger, Constants.GAME_TYPE_ID + "." + id);
         methodChannel.setMethodCallHandler(this);
@@ -136,6 +134,10 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         String reservedId = call.argument("reservedId");
         if (reservedId != null) {
             builder.reservedId(reservedId);
+        }
+        Integer sessionMode = call.argument("sessionMode");
+        if (sessionMode != null) {
+            builder.sessionMode(sessionMode);
         }
 
         GamePlayConfig mGamePlayConfig = builder.build();

@@ -54,6 +54,9 @@ class VeGameViewController {
     _channel.invokeMethod("stop");
   }
 
+  /// 发送鼠标按键事件
+  sendMouseKeyChanged() {}
+
   /// 响应平台调用
   Future<dynamic> _onHostCall(MethodCall call) async {
     if (call.method == "onQueueUpdate" && onQueueUpdate != null) {

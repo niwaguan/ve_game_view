@@ -25,6 +25,15 @@ class VeGameConfig {
   /// 资源预锁定 ID，通过调用服务端 PreAllocateResource 接口获取（如不传入，将在开始播放成功回调中返回）
   final String? reservedId;
 
+  /// 启动游戏模式：
+  /// 0（普通模式，默认）
+  /// 1（挂机模式）
+  /// 2（仅退出客户端，不退出服务端）
+  /// 说明：当开启多人游戏时，仅操作者可以设置挂机模式
+  final int sessionMode;
+
+  final Map<String, Object>? extra;
+
   VeGameConfig({
     required this.uid,
     required this.ak,
@@ -33,7 +42,9 @@ class VeGameConfig {
     required this.gameId,
     this.roundId,
     this.reservedId,
+    this.extra,
     this.streamType = 3,
+    this.sessionMode = 0,
   });
 
   Object toJson() {
@@ -44,12 +55,16 @@ class VeGameConfig {
       "token": token,
       "gameId": gameId,
       "streamType": streamType,
+      "sessionMode": sessionMode,
     };
     if (roundId?.isNotEmpty == true) {
       r["roundId"] = roundId!;
     }
     if (reservedId?.isNotEmpty == true) {
       r['reservedId'] = reservedId!;
+    }
+    if (extra?.isNotEmpty == true) {
+      r["extra"] = extra!;
     }
     return r;
   }
