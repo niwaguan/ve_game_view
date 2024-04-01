@@ -16,9 +16,11 @@ import com.volcengine.cloudcore.common.mode.KeySateType;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
 import com.volcengine.cloudcore.common.mode.MouseKey;
 import com.volcengine.cloudcore.common.mode.QueueInfo;
+import com.volcengine.cloudcore.common.mode.Role;
 import com.volcengine.cloudcore.common.mode.StreamType;
 import com.volcengine.cloudgame.GamePlayConfig;
 import com.volcengine.cloudgame.VeGameEngine;
+import com.volcengine.cloudphone.apiservice.IODeviceManager;
 import com.volcengine.cloudphone.apiservice.outinterface.IGamePlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 
@@ -122,9 +124,11 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
             result.error("2", "'token' is absent", null);
             return;
         }
+
         String gameId = call.argument("gameId");
-        if (gameId == null || gameId.isEmpty()) {
-            result.error("2", "'gameId' is absent", null);
+        String customGameId = call.argument("customGameId");
+        if ((gameId == null || gameId.isEmpty()) && (customGameId == null || customGameId.isEmpty())) {
+            result.error("2", "'gameId' or 'customGameId' is absent", null);
             return;
         }
         String roundId = call.argument("roundId");
@@ -133,7 +137,8 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         }
 
         GamePlayConfig.Builder builder = new GamePlayConfig.Builder();
-        builder.userId(uid).ak(ak).sk(sk).token(token).gameId(gameId)
+        builder.userId(uid).ak(ak).sk(sk).token(token).gameId(gameId == null ? "" : gameId)
+                .customGameId(customGameId)
                 .container(mContainer).roundId(roundId).streamListener(this);
 
         Integer streamType = call.argument("streamType");
@@ -148,6 +153,41 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         if (sessionMode != null) {
             builder.sessionMode(sessionMode);
         }
+        Integer roomType = call.argument("roomType");
+        if (roomType != null) {
+            builder.roomType(roomType);
+        }
+        Integer role = call.argument("role");
+        if (role != null) {
+            builder.role(role == 0 ? Role.VIEWER : Role.PLAYER);
+        }
+        String planId = call.argument("planId");
+        if (planId != null) {
+            builder.planId(planId);
+        }
+        Boolean keyBoardEnable = call.argument("keyBoardEnable");
+        builder.keyBoardEnable(Boolean.TRUE.equals(keyBoardEnable));
+
+        Integer videoStreamProfileId = call.argument("videoStreamProfileId");
+        if (videoStreamProfileId != null) {
+            builder.videoStreamProfileId(videoStreamProfileId);
+        }
+        Integer autoRecycleTime = call.argument("autoRecycleTime");
+        if (autoRecycleTime != null) {
+            builder.autoRecycleTime(autoRecycleTime);
+        }
+        List<String> userProfilePath = call.argument("userProfilePath");
+        if (userProfilePath != null) {
+            builder.userProfilePath(userProfilePath);
+        }
+        Integer queuePriority = call.argument("queuePriority");
+        if (queuePriority != null) {
+            builder.queuePriority(queuePriority);
+        }
+        Map<String, String> extra = call.argument("extra");
+        if (extra != null) {
+            builder.extra(extra);
+        }
 
         GamePlayConfig mGamePlayConfig = builder.build();
         VeGameEngine.getInstance().start(mGamePlayConfig, this);
@@ -155,6 +195,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     }
     void onStopMethodCall(@NonNull MethodCall call, @NonNull Result result) {
         VeGameEngine.getInstance().stop();
+        result.success(null);
     }
 
     void onMouseKeyChanged(@NonNull MethodCall call, @NonNull Result result) {
@@ -182,8 +223,14 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         } else if (key == 4) {
             _key = MouseKey.MouseKeyXBUTTON2_VALUE;
         }
+        IODeviceManager manager = VeGameEngine.getInstance().getIODeviceManager();
+        if (manager == null) {
+            result.error("2", "'IODeviceManager' is absent", null);
+            return;
+        }
 
-        Objects.requireNonNull(VeGameEngine.getInstance().getIODeviceManager()).sendInputMouseKey(_key, active ? KeySateType.DOWN : KeySateType.UP);
+        manager.sendInputMouseKey(_key, active ? KeySateType.DOWN : KeySateType.UP);
+        result.success(null);
     }
     void onMouseMovementCall(@NonNull MethodCall call, @NonNull Result result) {
         if (!(call.arguments instanceof Map)) {
@@ -200,7 +247,13 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
             result.error("2", "'deltaY' is absent", null);
             return;
         }
-        Objects.requireNonNull(VeGameEngine.getInstance().getIODeviceManager()).sendInputMouseMove(deltaY.intValue(), deltaY.intValue());
+        IODeviceManager manager = VeGameEngine.getInstance().getIODeviceManager();
+        if (manager == null) {
+            result.error("2", "'IODeviceManager' is absent", null);
+            return;
+        }
+        manager.sendInputMouseMove(deltaY.intValue(), deltaY.intValue());
+        result.success(null);
     }
     void onMousePositionCall(@NonNull MethodCall call, @NonNull Result result) {
         if (!(call.arguments instanceof Map)) {
@@ -217,7 +270,13 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
             result.error("2", "'y' is absent", null);
             return;
         }
-        Objects.requireNonNull(VeGameEngine.getInstance().getIODeviceManager()).sendInputCursorPos(x.floatValue(), y.floatValue());
+        IODeviceManager manager = VeGameEngine.getInstance().getIODeviceManager();
+        if (manager == null) {
+            result.error("2", "'IODeviceManager' is absent", null);
+            return;
+        }
+        manager.sendInputCursorPos(x.floatValue(), y.floatValue());
+        result.success(null);
     }
 
     @Override
