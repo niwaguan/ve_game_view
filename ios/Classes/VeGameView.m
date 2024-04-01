@@ -477,7 +477,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 - (void)gameManager:(VeGameManager *)manager onNetworkQuality:(VeBaseNetworkQuality)quality{
     dispatch_async(dispatch_get_main_queue(), ^{
         
-        
+        NSLog(@"network quality=========%lu",(unsigned long)quality);
         [self.methodChannel invokeMethod:@"onNetworkQuality" arguments:@{@"quality":@(quality)}];
         
     });
