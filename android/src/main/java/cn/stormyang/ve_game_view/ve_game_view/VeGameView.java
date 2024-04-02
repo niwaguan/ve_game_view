@@ -85,6 +85,11 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
+        String logStr = "onFlutterMethodCall: " + call.method;
+        if (call.arguments != null) {
+            logStr += ", args: " + call.arguments;
+        }
+        Log.i(TAG, logStr);
         if("start".equals(call.method)) {
             onStartMethodCall(call, result);
         } else if ("stop".equals(call.method)) {
