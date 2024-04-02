@@ -62,7 +62,7 @@ class VeGameView extends StatelessWidget {
 
   /// 收到视频首帧回调
   /// [streamId] 远端实例视频流 ID
-  final void Function(String streamId)? onFirstVideoFrame;
+  final void Function(String? streamId)? onFirstVideoFrame;
 
   /// 开始播放回调
   final void Function()? onStreamStarted;
@@ -133,11 +133,12 @@ class VeGameView extends StatelessWidget {
           viewType: viewTypeId,
           surfaceFactory: (context, controller) {
             return AndroidViewSurface(
-              controller: controller as AndroidViewController,
-              hitTestBehavior: PlatformViewHitTestBehavior.opaque,
-              gestureRecognizers: const <Factory<
-                  OneSequenceGestureRecognizer>>{},
-            );
+                controller: controller as AndroidViewController,
+                hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+                gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                  Factory<OneSequenceGestureRecognizer>(
+                      () => PanGestureRecognizer())
+                });
           },
           onCreatePlatformView: (params) {
             return PlatformViewsService.initSurfaceAndroidView(
@@ -159,6 +160,9 @@ class VeGameView extends StatelessWidget {
         return UiKitView(
           viewType: viewTypeId,
           onPlatformViewCreated: _onPlatformViewCreated,
+          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+            Factory<OneSequenceGestureRecognizer>(() => PanGestureRecognizer())
+          },
         );
       default:
         return Text(

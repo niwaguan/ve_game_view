@@ -38,6 +38,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 @property (nonatomic, copy) NSString *roundId;
 @property (nonatomic, copy) NSString *reservedId;
 
+
 @end
 
 @implementation VeCloudGameConfigObject
@@ -121,6 +122,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     configObj.token = self.configObj.token;
     configObj.userId = self.configObj.userId;
     configObj.reservedId=self.configObj.reservedId;
+    
     [[VeGameManager sharedInstance] probeStart: configObj];
     
     [VeGameManager sharedInstance].delegate = self;
@@ -139,23 +141,10 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
                                              selector: @selector(receiveAppWillEnterForegroundNotification:)
                                                  name: UIApplicationWillEnterForegroundNotification
                                                object: nil];
-    [self.iView addObserver:self forKeyPath:@"frame" options:NSKeyValueObservingOptionNew context:nil];
     [self startGame];
     
 }
-// 然后实现观察者方法
-- (void)observeValueForKeyPath:(NSString *)keyPath
-                      ofObject:(id)object
-                        change:(NSDictionary<NSKeyValueChangeKey,id> *)change
-                       context:(void *)context {
-    if (object == self.view && [keyPath isEqualToString:@"frame"]) {
-//        NSLog(@"##############");
-        //        CGRect newFrame = [[change objectForKey:NSKeyValueChangeNewKey] CGRectValue];
-        // 在这里可以执行你想要做的操作，比如重新布局等
-//        [self startGame];
-        
-    }
-}
+
 - (void)configSubView
 {
     // 画布
@@ -197,7 +186,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         self.roundIdCount++;
         VeCloudGameConfigObject *obj = [[VeCloudGameConfigObject alloc] init];
         if(call.arguments[@"roundId"]!=nil){
-            
+
             obj.roundId=call.arguments[@"roundId"];
         }else{
             obj.roundId=[NSString stringWithFormat:@"%@%d", call.arguments[@"uid"], self.roundIdCount];
@@ -211,6 +200,9 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         obj.netProbe=false;
         self.configObj=obj;
         [self buildView];
+    }else if ([@"stop" isEqualToString:call.method]) {
+        
+        [[VeGameManager sharedInstance] stop];
     }
 }
 #pragma mark - receive notification
@@ -234,7 +226,12 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 }
 
 
+- (void)dealloc {
+    // 在这里执行视图销毁前的清理操作
+    // 例如移除通知、释放资源等
+    [[VeGameManager sharedInstance] stop];
 
+}
 - (void)gameManager:(VeGameManager *)manager onMessageChannleError:(VeGameErrorCode)errCode
 {
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -477,7 +474,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 - (void)gameManager:(VeGameManager *)manager onNetworkQuality:(VeBaseNetworkQuality)quality{
     dispatch_async(dispatch_get_main_queue(), ^{
         
-        NSLog(@"network quality=========%lu",(unsigned long)quality);
+    
         [self.methodChannel invokeMethod:@"onNetworkQuality" arguments:@{@"quality":@(quality)}];
         
     });
@@ -521,7 +518,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         VeGameMouseMessage *move = [VeGameMouseMessage new];
         move.x = (self.last_motion_x - gyroData.rotationRate.y) * 5;
         move.y = (self.last_motion_y - gyroData.rotationRate.x) * 5;
-        
+        NSLog(@"%f,%f,",move.x,move.y);
         [[VeGameManager sharedInstance] sendMoveEventWithAbsX:gyroData.rotationRate.x absY:gyroData.rotationRate.y deltaX:self.last_motion_x deltaY:self.last_motion_y];
         self.last_motion_x = gyroData.rotationRate.y;
         self.last_motion_y = gyroData.rotationRate.x;
