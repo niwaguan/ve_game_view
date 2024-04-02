@@ -48,10 +48,10 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     private Integer roundId = 0;
 
     VeGameView(@NonNull Context context, int id, @Nullable Map<String, Object> creationParams, @NonNull BinaryMessenger binaryMessenger, Activity activity) {
-        mContainer = new FrameLayout(activity);
+        mContainer = new FrameLayout(context);
         mContainer.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
+                FrameLayout.LayoutParams.MATCH_PARENT
         ));
         mContainer.setBackgroundColor(Color.rgb(255,0,0));
         mContainer.setVisibility(View.VISIBLE);
