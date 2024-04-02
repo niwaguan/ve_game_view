@@ -45,6 +45,8 @@ android {
 
     dependencies {
         implementation 'com.volcengine.vegame:vegame:1.32.0'
+        implementation 'com.alibaba:fastjson:1.1.72.android'
+
         testImplementation 'junit:junit:4.13.2'
         testImplementation 'org.mockito:mockito-core:5.0.0'
     }

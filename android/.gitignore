@@ -1,5 +1,8 @@
 *.iml
 .gradle
+gradlew
+gradlew.bat
+gradle-wrapper.jar
 /local.properties
 /.idea/workspace.xml
 /.idea/libraries

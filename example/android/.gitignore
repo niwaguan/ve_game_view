@@ -1,5 +1,8 @@
+*.iml
+.gradle
+gradlew
+gradlew.bat
 gradle-wrapper.jar
-/.gradle
 /captures/
 /gradlew
 /gradlew.bat

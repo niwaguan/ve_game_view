@@ -45,8 +45,15 @@ public class VeGameViewPlugin implements FlutterPlugin, MethodCallHandler, Activ
 
   @Override
   public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-    if ("init".equals(call.method) && context != null) {
-      VeGameEngine.getInstance().prepare(context);
+    if ("init".equals(call.method)) {
+      if (context != null) {
+        VeGameEngine.getInstance().prepare(context);
+        result.success(null);
+        return;
+      }
+      result.error("-1", "Flutter not ready", null);
+    } else {
+      result.notImplemented();
     }
   }
 
