@@ -31,6 +31,7 @@ class _MyAppState extends State<MyApp> {
         uid: "ytbhf87768",
         reservedId: "7352865170319809299",
         sessionMode: 2,
+        keyBoardEnable: false,
       ),
     );
     print("start $result}");
