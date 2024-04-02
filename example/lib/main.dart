@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:ve_game_view/ve_game_view.dart';
 
@@ -15,15 +17,29 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late VeGameViewController gameViewController;
+  final completer = Completer<VeGameViewController>();
 
-  void _initAndStart() {
-    VeGameInitializer.init(accountId);
+  void _initAndStart() async {
+    await VeGameInitializer.init(accountId);
+    final gameViewController = await completer.future;
+    final result = await gameViewController.start(
+      VeGameConfig(
+        ak: ak,
+        sk: sk,
+        token: token,
+        gameId: gameId,
+        uid: "ytbhf87768",
+        reservedId: "7352865170319809299",
+        sessionMode: 2,
+      ),
+    );
+    print("start $result}");
   }
 
   @override
   void initState() {
     super.initState();
+    _initAndStart();
   }
 
   @override
@@ -38,18 +54,10 @@ class _MyAppState extends State<MyApp> {
             aspectRatio: 16 / 9,
             child: VeGameView(
               onCreated: (controller) {
-                gameViewController = controller;
-                controller.start(
-                  VeGameConfig(
-                    uid: uid,
-                    ak: ak,
-                    sk: sk,
-                    token: token,
-                    gameId: gameId,
-                    reservedId: "7352865170319809299",
-                    sessionMode: 2,
-                  ),
-                );
+                if (completer.isCompleted) {
+                  return;
+                }
+                completer.complete(controller);
               },
             ),
           ),
