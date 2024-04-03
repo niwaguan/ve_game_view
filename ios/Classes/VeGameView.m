@@ -173,6 +173,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
         configObj.roundId = self.configObj.roundId;
         configObj.reservedId = self.configObj.reservedId;
         configObj.sessionMode=2;
+        [VeGameManager sharedInstance].streamType=VeBaseStreamTypeVideo;
         // 启动
         [[VeGameManager sharedInstance] startWithConfig: configObj];
     }
