@@ -14,7 +14,7 @@ class VeGameViewController {
   final void Function(int code, String message)? onWarning;
   final void Function(int code, String message)? onError;
   final void Function(String streamId)? onFirstAudioFrame;
-  final void Function(String? streamId)? onFirstVideoFrame;
+  final void Function(String streamId)? onFirstVideoFrame;
   final void Function()? onStreamStarted;
   final void Function()? onStreamPaused;
   final void Function()? onStreamResumed;
@@ -55,6 +55,32 @@ class VeGameViewController {
     _channel.invokeMethod("stop");
   }
 
+  /// 发送鼠标按键事件
+  /// [key] 按键类型
+  /// [stats] 状态。0 按下，1 抬起
+  sendMouseKeyChanged(VeGameMouseKey key, int stats) {
+    _channel.invokeMethod("sendMouseKeyChanged", {
+      "key": key.index,
+      "stats": stats == 0,
+    });
+  }
+
+  /// 发送鼠标移动事件。差量值。
+  sendMouseMovement(double deltaX, double deltaY) {
+    _channel.invokeMethod("sendMouseMovement", {
+      "deltaX": deltaX,
+      "deltaY": deltaY,
+    });
+  }
+
+  /// 发送鼠标绝对位置。值为 0 ~ 1
+  sendMousePosition(double x, double y) {
+    _channel.invokeMethod("sendMousePosition", {
+      "x": x,
+      "y": y,
+    });
+  }
+
   /// 响应平台调用
   Future<dynamic> _onHostCall(MethodCall call) async {
     print(
@@ -83,10 +109,7 @@ class VeGameViewController {
         onFirstAudioFrame!(id);
       } else if (call.method == "onFirstVideoFrame" &&
           onFirstVideoFrame != null) {
-        var id = null;
-        if (call.arguments != null) {
-          id = call.arguments["streamId"];
-        }
+        final id = call.arguments["streamId"];
         onFirstVideoFrame!(id);
       } else if (call.method == "onStreamStarted" && onStreamStarted != null) {
         onStreamStarted!();
