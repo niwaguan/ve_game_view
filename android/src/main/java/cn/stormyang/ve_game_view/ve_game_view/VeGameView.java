@@ -15,6 +15,7 @@ import com.volcengine.cloudcore.common.mode.KeySateType;
 import com.volcengine.cloudcore.common.mode.LocalStreamStats;
 import com.volcengine.cloudcore.common.mode.MouseKey;
 import com.volcengine.cloudcore.common.mode.QueueInfo;
+import com.volcengine.cloudcore.common.mode.RenderViewType;
 import com.volcengine.cloudcore.common.mode.Role;
 import com.volcengine.cloudcore.common.mode.StreamType;
 import com.volcengine.cloudgame.GamePlayConfig;
@@ -191,7 +192,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         if (extra != null) {
             builder.extra(extra);
         }
-
+        builder.renderViewType(RenderViewType.TEXTURE_VIEW);
         GamePlayConfig mGamePlayConfig = builder.build();
         VeGameEngine.getInstance().start(mGamePlayConfig, this);
         result.success(null);
