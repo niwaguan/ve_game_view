@@ -1,3 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="cn.stormyang.ve_game_view.ve_game_view">
+    package="cn.stormyang.ve_game_view.ve_game_view">
+
+    <application>
+        <activity
+            android:name=".VeGameInspectActivity"
+            android:exported="false" android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+    </application>
+
 </manifest>
