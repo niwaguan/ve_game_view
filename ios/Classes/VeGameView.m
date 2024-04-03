@@ -282,6 +282,15 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 
     });
 }
+
+- (void)gameManager:(VeGameManager *)manager onNetProbeProcess:(VeGameNetworkProbeStats *)stats
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSLog(@"%@", [NSString stringWithFormat: @"往返延迟rtt：%dms\n上行网络：%dms\n下行网络：%dms\n上行网络带宽：%d kbit/s\n下行网络带宽：%d kbit/s\n上行网络丢包率：%0.2f%%\n下行网络丢包率：%0.2f%%", stats.rtt, stats.uploadJitter, stats.downloadJitter, stats.uploadBandwidth, stats.downloadBandwidth, stats.uploadLossPercent, stats.downloadLossPercent]);
+
+    });
+}
+
 /// 本地“操作延迟”回调
 /// - Parameters:
 ///   - manager: VeGameManager 对象

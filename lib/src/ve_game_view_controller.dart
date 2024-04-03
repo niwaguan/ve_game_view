@@ -14,7 +14,7 @@ class VeGameViewController {
   final void Function(int code, String message)? onWarning;
   final void Function(int code, String message)? onError;
   final void Function(String streamId)? onFirstAudioFrame;
-  final void Function(String streamId)? onFirstVideoFrame;
+  final void Function(String? streamId)? onFirstVideoFrame;
   final void Function()? onStreamStarted;
   final void Function()? onStreamPaused;
   final void Function()? onStreamResumed;
@@ -109,7 +109,7 @@ class VeGameViewController {
         onFirstAudioFrame!(id);
       } else if (call.method == "onFirstVideoFrame" &&
           onFirstVideoFrame != null) {
-        final id = call.arguments["streamId"];
+        final id = call.arguments != null ? call.arguments["streamId"] : null;
         onFirstVideoFrame!(id);
       } else if (call.method == "onStreamStarted" && onStreamStarted != null) {
         onStreamStarted!();
