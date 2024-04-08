@@ -126,7 +126,6 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     [[VeGameManager sharedInstance] probeStart: configObj];
     
     [VeGameManager sharedInstance].delegate = self;
-    _iView.backgroundColor = [UIColor redColor];
     NSLog(@"View frame: %@", NSStringFromCGRect(_iView.frame));
     
     [[NSNotificationCenter defaultCenter] addObserver: self
