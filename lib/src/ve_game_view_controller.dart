@@ -55,6 +55,16 @@ class VeGameViewController {
     _channel.invokeMethod("stop");
   }
 
+  /// 向云端发送消息
+  /// [message] 消息内容
+  /// [timeout] 超时时间
+  sendMessage(String message, {Duration timeout = const Duration(seconds: 2)}) {
+    _channel.invokeMethod("sendMessage", {
+      "message": message,
+      "timeout": timeout.inMilliseconds,
+    });
+  }
+
   /// 发送鼠标按键事件
   /// [key] 按键类型
   /// [stats] 状态。0 按下，1 抬起

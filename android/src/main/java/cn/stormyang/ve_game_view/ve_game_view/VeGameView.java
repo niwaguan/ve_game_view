@@ -20,7 +20,9 @@ import com.volcengine.cloudcore.common.mode.Role;
 import com.volcengine.cloudcore.common.mode.StreamType;
 import com.volcengine.cloudgame.GamePlayConfig;
 import com.volcengine.cloudgame.VeGameEngine;
+import com.volcengine.cloudphone.apiservice.IMessageChannel;
 import com.volcengine.cloudphone.apiservice.IODeviceManager;
+import com.volcengine.cloudphone.apiservice.outinterface.ICloudCoreManagerStatusListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IGamePlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 
@@ -36,13 +38,16 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.platform.PlatformView;
 
-public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerListener, IStreamListener {
+public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerListener, IStreamListener, ICloudCoreManagerStatusListener, IMessageChannel.IMessageReceiver {
     private final String TAG = "VeGameView";
     @NonNull
     private final FrameLayout mContainer;
 
     @NonNull
-    private final MethodChannel methodChannel;
+    private final MethodChannel flutterMethodChannel;
+
+    private IMessageChannel cloudMessageChannel;
+    private final Map<String, Result> channelMessageMap = new HashMap<>();
 
     private Integer roundId = 0;
 
@@ -52,7 +57,6 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
-        mContainer.setBackgroundColor(Color.rgb(255,0,0));
         mContainer.setVisibility(View.VISIBLE);
 
         // test
@@ -66,8 +70,8 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 //        textView.setBackgroundColor(Color.rgb(0, 0, 255));
 //        textView.setText("Rendered on a native Android view (id: " + id + ")");
 
-        methodChannel = new MethodChannel(binaryMessenger, Constants.GAME_TYPE_ID + "." + id);
-        methodChannel.setMethodCallHandler(this);
+        flutterMethodChannel = new MethodChannel(binaryMessenger, Constants.GAME_TYPE_ID + "." + id);
+        flutterMethodChannel.setMethodCallHandler(this);
     }
 
     @Nullable
@@ -78,7 +82,11 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     @Override
     public void dispose() {
-        methodChannel.setMethodCallHandler(null);
+        if (cloudMessageChannel != null) {
+            cloudMessageChannel.setMessageListener(null);
+            cloudMessageChannel = null;
+        }
+        flutterMethodChannel.setMethodCallHandler(null);
         VeGameEngine.getInstance().stop();
     }
 
@@ -99,6 +107,10 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
             onMousePositionCall(call, result);
         } else if("sendMouseKeyChanged".equals(call.method)) {
             onMouseKeyChanged(call, result);
+        } else if ("sendMessage".equals(call.method)) {
+            onSendMessageCall(call, result);
+        } else {
+            result.notImplemented();
         }
     }
 
@@ -194,6 +206,8 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         }
         builder.renderViewType(RenderViewType.TEXTURE_VIEW);
         GamePlayConfig mGamePlayConfig = builder.build();
+        VeGameEngine.getInstance().removeCloudCoreManagerListener(this);
+        VeGameEngine.getInstance().addCloudCoreManagerListener(this);
         VeGameEngine.getInstance().start(mGamePlayConfig, this);
         result.success(null);
     }
@@ -283,10 +297,37 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         result.success(null);
     }
 
+    void onSendMessageCall(@NonNull MethodCall call, @NonNull Result result) {
+        if (cloudMessageChannel == null) {
+            cloudMessageChannel = VeGameEngine.getInstance().getMessageChannel();
+            if (cloudMessageChannel != null) {
+                cloudMessageChannel.setMessageListener(this);
+            }
+        }
+        if (cloudMessageChannel == null) {
+            result.error("-1", "CloudMessageChannel not ready", null);
+            return;
+        }
+        String message = call.argument("message");
+        if (message == null || message.isEmpty()) {
+            result.error("-1", "[message] MUST NOT BE empty", null);
+            return;
+        }
+        Integer timeout = call.argument("timeout");
+
+        IMessageChannel.IChannelMessage sendMessage;
+        if (timeout == null) {
+            sendMessage = cloudMessageChannel.sendMessage(message, true);
+        } else {
+            sendMessage = cloudMessageChannel.sendMessage(message, timeout.longValue());
+        }
+        channelMessageMap.put(sendMessage.getMid(), result);
+    }
+
     @Override
     public void onPlaySuccess(String s, int i, Map<String, String> map, String s1, String s2) {
         Log.i(TAG, "onPlaySuccess");
-        methodChannel.invokeMethod("onPlaySuccess", new HashMap<String, Object>(){{
+        flutterMethodChannel.invokeMethod("onPlaySuccess", new HashMap<String, Object>(){{
             put("roundId", s);
             put("videoStreamProfileId", i);
             put("extra", map);
@@ -296,19 +337,52 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     }
 
     @Override
+    public void onReceiveMessage(IMessageChannel.IChannelMessage iChannelMessage) {
+
+    }
+
+    @Override
+    public void onReceiveBinaryMessage(IMessageChannel.IChannelBinaryMessage iChannelBinaryMessage) {
+
+    }
+
+    @Override
+    public void onSentResult(boolean b, String s) {
+        Result result = channelMessageMap.get(s);
+        if (result == null) {
+            return;
+        }
+        result.success(b);
+    }
+
+    /// 已弃用，可忽略
+    @Override
+    public void ready() {}
+
+    @Override
     public void onError(int i, String s) {
         Log.i(TAG, "onError, i:" + i + ", s: " + s);
         VeGameEngine.getInstance().stop();
-        methodChannel.invokeMethod("onError", new HashMap<String, Object>(){{
+        flutterMethodChannel.invokeMethod("onError", new HashMap<String, Object>(){{
             put("code", i);
             put("message", s);
         }});
     }
 
     @Override
+    public void onRemoteOnline(String s) {
+
+    }
+
+    @Override
+    public void onRemoteOffline(String s) {
+
+    }
+
+    @Override
     public void onWarning(int i, String s) {
         Log.i(TAG, "onWarning, i:" + i + ", s: " + s);
-        methodChannel.invokeMethod("onWarning", new HashMap<String, Object>(){{
+        flutterMethodChannel.invokeMethod("onWarning", new HashMap<String, Object>(){{
             put("code", i);
             put("message", s);
         }});
@@ -317,7 +391,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onNetworkChanged(int i) {
         Log.i(TAG, "onWarning, i:" + i);
-        methodChannel.invokeMethod("onNetworkChanged", new HashMap<String, Integer>(){{
+        flutterMethodChannel.invokeMethod("onNetworkChanged", new HashMap<String, Integer>(){{
             put("type", i);
         }});
     }
@@ -325,7 +399,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onServiceInit() {
         Log.i(TAG, "onServiceInit");
-        methodChannel.invokeMethod("onServiceInit", null);
+        flutterMethodChannel.invokeMethod("onServiceInit", null);
     }
 
     @Override
@@ -340,13 +414,13 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
             queueInfoMap.put("configurationCode", queueInfo.configurationCode);
             queueInfoList.add(queueInfoMap);
         }
-        methodChannel.invokeMethod("onQueueUpdate", queueInfoList);
+        flutterMethodChannel.invokeMethod("onQueueUpdate", queueInfoList);
     }
 
     @Override
     public void onQueueSuccessAndStart(int i) {
         Log.i(TAG, "onQueueSuccessAndStart");
-        methodChannel.invokeMethod("onQueueSuccessAndStart", new HashMap<String, Integer>(){{
+        flutterMethodChannel.invokeMethod("onQueueSuccessAndStart", new HashMap<String, Integer>(){{
             put("remainTime", i);
         }});
     }
@@ -354,7 +428,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onFirstAudioFrame(String s) {
         Log.i(TAG, "onFirstAudioFrame");
-        methodChannel.invokeMethod("onFirstAudioFrame", new HashMap<String, String>(){{
+        flutterMethodChannel.invokeMethod("onFirstAudioFrame", new HashMap<String, String>(){{
             put("streamId", s);
         }});
     }
@@ -362,7 +436,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onFirstRemoteVideoFrame(String s) {
         Log.i(TAG, "onFirstVideoFrame");
-        methodChannel.invokeMethod("onFirstVideoFrame", new HashMap<String, String>(){{
+        flutterMethodChannel.invokeMethod("onFirstVideoFrame", new HashMap<String, String>(){{
             put("streamId", s);
         }});
     }
@@ -370,25 +444,25 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onStreamStarted() {
         Log.i(TAG, "onStreamStarted");
-        methodChannel.invokeMethod("onStreamStarted", null);
+        flutterMethodChannel.invokeMethod("onStreamStarted", null);
     }
 
     @Override
     public void onStreamPaused() {
         Log.i(TAG, "onStreamPaused");
-        methodChannel.invokeMethod("onStreamPaused", null);
+        flutterMethodChannel.invokeMethod("onStreamPaused", null);
     }
 
     @Override
     public void onStreamResumed() {
         Log.i(TAG, "onStreamResumed");
-        methodChannel.invokeMethod("onStreamResumed", null);
+        flutterMethodChannel.invokeMethod("onStreamResumed", null);
     }
 
     @Override
     public void onStreamStats(StreamStats stats) {
         Log.i(TAG, "onStreamStats");
-        methodChannel.invokeMethod("onStreamStats", new HashMap<String, Object>(){{
+        flutterMethodChannel.invokeMethod("onStreamStats", new HashMap<String, Object>(){{
             put("receivedVideoBitRate", stats.getReceivedVideoBitRate());
             put("receivedAudioBitRate", stats.getReceivedAudioBitRate());
             put("decoderOutputFrameRate", stats.getDecoderOutputFrameRate());
@@ -411,7 +485,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onStreamConnectionStateChanged(int i) {
         Log.i(TAG, "onStreamConnectionStateChanged");
-        methodChannel.invokeMethod("onStreamConnectionStateChanged", new HashMap<String, Integer>(){{
+        flutterMethodChannel.invokeMethod("onStreamConnectionStateChanged", new HashMap<String, Integer>(){{
             put("stats", i);
         }});
     }
@@ -419,7 +493,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onDetectDelay(long l) {
         Log.i(TAG, "onDetectDelay");
-        methodChannel.invokeMethod("onDetectDelay", new HashMap<String, Number>(){{
+        flutterMethodChannel.invokeMethod("onDetectDelay", new HashMap<String, Number>(){{
             put("elapse", l);
         }});
     }
@@ -427,7 +501,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onRotation(int i) {
         Log.i(TAG, "onRotation");
-        methodChannel.invokeMethod("onRotation", new HashMap<String, Number>(){{
+        flutterMethodChannel.invokeMethod("onRotation", new HashMap<String, Number>(){{
             put("rotation", i);
         }});
     }
@@ -435,7 +509,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onPodExit(int i, String s) {
         Log.i(TAG, "onPodExit");
-        methodChannel.invokeMethod("onPodExit", new HashMap<String, Object>(){{
+        flutterMethodChannel.invokeMethod("onPodExit", new HashMap<String, Object>(){{
             put("reason", i);
             put("msg", s);
         }});
@@ -443,6 +517,16 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     @Override
     public void onNetworkQuality(int i) {
+        Log.i(TAG, "onNetworkQuality");
+    }
 
+    @Override
+    public void onInitialed() {
+        Log.i(TAG, "CloudCoreManager onInitialed");
+    }
+
+    @Override
+    public void onPrepared() {
+        Log.i(TAG, "CloudCoreManager onPrepared");
     }
 }
