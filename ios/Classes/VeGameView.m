@@ -11,87 +11,16 @@
 #import <CommonCrypto/CommonDigest.h>
 #import <CoreMotion/CoreMotion.h>
 #import <Flutter/Flutter.h>
-
-/** ---------------- 鼠标按钮类型 ----------------- */
-typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
-  /** 左键 */
-  VeGameMouseButtonTypeLeft = 0,
-  /** 中间 */
-  VeGameMouseButtonTypeMiddle,
-  /** 右键 */
-  VeGameMouseButtonTypeRight,
-  /** XButton1 */
-  VeGameMouseButtonTypeXButton1,
-  /** XButton2 */
-  VeGameMouseButtonTypeXButton2
-};
-
-
-@interface VeCloudGameConfigObject : NSObject
-
-@property (nonatomic, assign) BOOL netProbe;
-@property (nonatomic, copy) NSString *ak;
-@property (nonatomic, copy) NSString *sk;
-@property (nonatomic, copy) NSString *token;
-@property (nonatomic, copy) NSString *gameId;
-@property (nonatomic, copy) NSString *userId;
-@property (nonatomic, copy) NSString *roundId;
-@property (nonatomic, copy) NSString *reservedId;
-
-
-@end
-
-@implementation VeCloudGameConfigObject
-@end
-/** ------------ 鼠标操作 ------------- */
-@interface VeGameMouseMessage : NSObject
-/**
- * 当 action = VeGameMouseActionTypeMove 时，为游戏画面 X 轴相对值，差值
- * 当 action = VeGameMouseActionTypeCursorPos 时，为游戏画面 X 轴绝对值，[0, 1]
- */
-@property (nonatomic, assign) CGFloat x;
-/**
- * 当 action = VeGameMouseActionTypeMove 时，为游戏画面 Y 轴相对值，差值
- * 当 action = VeGameMouseActionTypeCursorPos 时，为游戏画面 Y 轴绝对值，[0, 1]
- */
-@property (nonatomic, assign) CGFloat y;
-/**
- * 滚轮值
- */
-@property (nonatomic, assign) int32_t wheel;
-
-
-/**
- * 按钮类型
- */
-@property (nonatomic, assign) VeGameMouseButtonType button;
-/**
- * 动作类型
- */
-@property (nonatomic, assign) VeGameMouseActionType action;
-@end
-
-
-@implementation VeGameMouseMessage
-@end
+#import "SendMessageEntry.h"
 
 @interface VeGameView ()<VeGameManagerDelegate>
-
-@property (nonatomic, assign) BOOL alreadyStart;
 @property(nonatomic, strong, readwrite) UIView *iView;
-@property(nonatomic, strong, readwrite) FlutterMethodChannel *methodChannel;
-@property (nonatomic, copy) NSString *operationDelayTime;
-@property (nonatomic, strong) UILabel *netProbeStatsLabel;
-@property (nonatomic, strong, readwrite) UIView *containerView;
-@property (nonatomic, strong) CMMotionManager *motionManager;
-@property (nonatomic, assign) double last_motion_x;
-@property (nonatomic, assign) double last_motion_y;
-@property (nonatomic, strong) VeCloudGameConfigObject *configObj;
-@property (nonatomic, assign) int  roundIdCount;
+@property(nonatomic, strong, readwrite) FlutterMethodChannel *flutterMethodChannel;
+@property (nonatomic, assign) int roundIdCount;
 
-@property (nonatomic, assign) NSInteger rotation;
-
+@property (nonatomic, assign) BOOL cloudMessageChannelReady;
 @property (nonatomic, strong, readwrite) NSMutableDictionary<NSString *, FlutterResult> *messageMap;
+@property (nonatomic, strong, readwrite) NSMutableArray<SendMessageEntry *> *messageQueue;
 
 @end
 
@@ -103,32 +32,91 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
                     arguments:(id _Nullable)args {
   VeGameView *view = [[VeGameView alloc] init];
   view.iView = [[UIView alloc] initWithFrame:frame];
-  view.methodChannel = [FlutterMethodChannel methodChannelWithName:[NSString stringWithFormat:@"%@.%lld", VeGameViewTypeID, identifier] binaryMessenger:binaryMessenger];
+  view.flutterMethodChannel = [FlutterMethodChannel methodChannelWithName:[NSString stringWithFormat:@"%@.%lld", VeGameViewTypeID, identifier] binaryMessenger:binaryMessenger];
   view.messageMap = [@{} mutableCopy];
+  view.messageQueue = [@[] mutableCopy];
   
   typeof(view) __weak weak = view;
-  [view.methodChannel setMethodCallHandler:^(FlutterMethodCall * _Nonnull call, FlutterResult  _Nonnull result) {
+  [view.flutterMethodChannel setMethodCallHandler:^(FlutterMethodCall * _Nonnull call, FlutterResult  _Nonnull result) {
     [weak onFlutterMethodCall:call result:result];
   }];
   return view;
 }
 
+- (nonnull UIView *)view {
+  return _iView;
+}
 
-- (void)buildView {
-  //    [self configSubView];
-  self.rotation = 0;
+- (void)dealloc {
+  // 在这里执行视图销毁前的清理操作
+  // 例如移除通知、释放资源等
+  [[VeGameManager sharedInstance] stop];
+}
+
+#pragma mark - flutter method call
+
+- (void)onFlutterMethodCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
+  NSLog(@"on flutter method call: %@. args: %@\n", call.method, call.arguments);
+  if ([@"start" isEqualToString:call.method]) {
+    [self onStartCall:call result:result];
+  } else if ([@"stop" isEqualToString:call.method]) {
+    [[VeGameManager sharedInstance] stop];
+  } else if ([@"sendMessage" isEqualToString:call.method]) {
+    [self onSendMessageCall:call result:result];
+  }
+}
+
+- (void)onStartCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
+  VeGameConfigObject *config = [VeGameConfigObject new];
+  config.userId = call.arguments[@"uid"];
+  config.ak = call.arguments[@"ak"];
+  config.sk = call.arguments[@"sk"];
+  config.token = call.arguments[@"token"];
+  config.gameId = call.arguments[@"gameId"];
+  config.customGameId = call.arguments[@"customGameId"];
+  config.roundId = ({
+    NSString *value = call.arguments[@"roundId"];
+    value != NULL ? value : [NSString stringWithFormat:@"%@%d", call.arguments[@"uid"], ++self.roundIdCount];
+  });
+  [VeGameManager sharedInstance].streamType = ({
+    NSNumber *value = call.arguments[@"customGameId"];
+    value.unsignedIntValue >= 3 ? 0 : value.unsignedIntValue;
+  });
+  config.reservedId = call.arguments[@"reservedId"];
+  config.sessionMode = ({
+    NSNumber *value = call.arguments[@"sessionMode"];
+    value.unsignedIntValue;
+  });
+  VeGameControlObject *control = [VeGameControlObject new];
+  control.roomType = ({
+    NSNumber *value = call.arguments[@"roomType"];
+    value.integerValue;
+  });
+  control.role = ({
+    NSNumber *value = call.arguments[@"role"];
+    value.integerValue;
+  });
+  config.control = control;
+  config.planId = call.arguments[@"planId"];
+  config.keyboardEnable = [call.arguments[@"keyBoardEnable"] isEqual:@1];
+  config.videoStreamProfileId = ({
+    NSNumber *value = call.arguments[@"videoStreamProfileId"];
+    value.integerValue;
+  });
+  config.autoRecycleTime = ({
+    NSNumber *value = call.arguments[@"autoRecycleTime"];
+    value.integerValue;
+  });
+  config.userProfilePathList = call.arguments[@"userProfilePath"];
+  config.queuePriority = ({
+    NSNumber *value = call.arguments[@"queuePriority"];
+    value.integerValue;
+  });
+  config.extraDict = call.arguments[@"extra"];
+  
   [VeGameManager sharedInstance].containerView = self.iView;
-  VeGameConfigObject *configObj = [VeGameConfigObject new];
-  configObj.ak = self.configObj.ak;
-  configObj.sk = self.configObj.sk;
-  configObj.token = self.configObj.token;
-  configObj.userId = self.configObj.userId;
-  configObj.reservedId=self.configObj.reservedId;
-  
-  [[VeGameManager sharedInstance] probeStart: configObj];
-  
+  [[VeGameManager sharedInstance] probeStart: config];
   [VeGameManager sharedInstance].delegate = self;
-  
   [[NSNotificationCenter defaultCenter] addObserver: self
                                            selector: @selector(receiveAppWillTerminateNotification:)
                                                name: UIApplicationWillTerminateNotification
@@ -141,106 +129,21 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
                                            selector: @selector(receiveAppWillEnterForegroundNotification:)
                                                name: UIApplicationWillEnterForegroundNotification
                                              object: nil];
-  [self startGame];
-  
+  // 启动
+  [[VeGameManager sharedInstance] startWithConfig:config];
 }
-
-- (void)configSubView
-{
-  // 画布
-  //    self.iView = ({
-  //        UIView *containerView = [[UIView alloc] init];
-  //        containerView.backgroundColor = [UIColor blackColor];
-  //        [self.view addSubview: containerView];
-  //        containerView;
-  //    });
-}
-- (nonnull UIView *)view {
-  return _iView;
-}
-
-- (void)startGame
-{
-  if (!self.alreadyStart) {
-    self.alreadyStart = YES;
-    // 启动参数
-    VeGameConfigObject *configObj = [VeGameConfigObject new];
-    configObj.ak = self.configObj.ak;
-    configObj.sk = self.configObj.sk;
-    configObj.token = self.configObj.token;
-    configObj.userId = self.configObj.userId;
-    configObj.gameId = self.configObj.gameId;
-    configObj.roundId = self.configObj.roundId;
-    configObj.reservedId = self.configObj.reservedId;
-    configObj.sessionMode=2;
-    [VeGameManager sharedInstance].streamType=VeBaseStreamTypeVideo;
-    // 启动
-    [[VeGameManager sharedInstance] startWithConfig: configObj];
-  }
-}
-
-
-- (void)onFlutterMethodCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
-  
-  NSLog(@"on flutter method call: %@\nargs: %@", call.method, call.arguments);
-  
-  if ([@"start" isEqualToString:call.method]) {
-    self.roundIdCount++;
-    VeCloudGameConfigObject *obj = [[VeCloudGameConfigObject alloc] init];
-    if(call.arguments[@"roundId"]!=nil){
-      
-      obj.roundId=call.arguments[@"roundId"];
-    }else{
-      obj.roundId=[NSString stringWithFormat:@"%@%d", call.arguments[@"uid"], self.roundIdCount];
-    }
-    obj.ak=call.arguments[@"ak"];
-    obj.sk=call.arguments[@"sk"];
-    obj.token=call.arguments[@"token"];
-    obj.userId=call.arguments[@"uid"];
-    obj.gameId=call.arguments[@"gameId"];
-    obj.reservedId=call.arguments[@"reservedId"];
-    obj.netProbe=false;
-    self.configObj=obj;
-    [self buildView];
-  } else if ([@"stop" isEqualToString:call.method]) {
-    
-    [[VeGameManager sharedInstance] stop];
-  } else if ([@"sendMessage" isEqualToString:call.method]) {
-    [self onSendMessageCall:call result:result];
-  }
-}
-
-
-#pragma mark - flutter method call
 
 - (void)onSendMessageCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
-  NSString *message = call.arguments[@"message"];
-  NSNumber *timeout = call.arguments[@"timeout"];
-  if (message.length <= 0) {
-    result([FlutterError errorWithCode:@"-1" message:@"参数缺失" details:@"缺少[message]字段"]);
-    return;
+  SendMessageEntry *entry = [SendMessageEntry new];
+  entry.call = call;
+  entry.result = result;
+  if (_cloudMessageChannelReady) {
+    NSLog(@"message channel ready. sending...");
+    [self sendRemoteMessage:entry];
+  } else {
+    NSLog(@"message channel [NOT] ready. queue...");
+    [_messageQueue addObject: entry];
   }
-  if (timeout.integerValue <= 0) {
-    result([FlutterError errorWithCode:@"-1" message:@"参数缺失" details:@"缺少[timeout]字段，或其值 <= 0"]);
-    return;
-  }
-//  VeBaseChannelMessage *m = [[VeGameManager sharedInstance] sendMessage:message timeout:timeout.integerValue];
-//  _messageMap[m.mid] = result;
-  
-}
-
-
-/// 本地通过“MCC”发送消息结果回调
-/// - Parameters:
-///   - manager: VeGameManager 对象
-///   - result: 结果；YES：成功 NO：超时失败
-///   - mid: 消息id
-- (void)gameManager:(VeGameManager *)manager onSendMessageResult:(BOOL)result messageId:(NSString *)mid {
-  FlutterResult callback = _messageMap[mid];
-  if (callback == NULL) {
-    return;
-  }
-  callback(@(result));
 }
 
 #pragma mark - receive notification
@@ -248,28 +151,21 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 - (void)receiveAppWillTerminateNotification:(NSNotification *)notification
 {
   [[VeGameManager sharedInstance] stop];
-  [self.methodChannel invokeMethod:@"onStreamStarted" arguments:nil];
+  [self.flutterMethodChannel invokeMethod:@"onStreamStarted" arguments:nil];
 }
 
 - (void)receiveAppDidEnterBackgroundNotification:(NSNotification *)notification
 {
   [[VeGameManager sharedInstance] switchPaused: YES];
-  [self.methodChannel invokeMethod:@"onStreamPaused" arguments:nil];
+  [self.flutterMethodChannel invokeMethod:@"onStreamPaused" arguments:nil];
 }
 
 - (void)receiveAppWillEnterForegroundNotification:(NSNotification *)notification
 {
   [[VeGameManager sharedInstance] switchPaused: NO];
-  [self.methodChannel invokeMethod:@"onStreamResumed" arguments:nil];
+  [self.flutterMethodChannel invokeMethod:@"onStreamResumed" arguments:nil];
 }
 
-
-- (void)dealloc {
-  // 在这里执行视图销毁前的清理操作
-  // 例如移除通知、释放资源等
-  [[VeGameManager sharedInstance] stop];
-  
-}
 - (void)gameManager:(VeGameManager *)manager onMessageChannleError:(VeGameErrorCode)errCode
 {
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -290,16 +186,85 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     }
     if (toast.length > 0) {
       
-      [self.methodChannel invokeMethod:@"onMessageError" arguments:@{@"code":codeNum,@"message":toast}];
+      [self.flutterMethodChannel invokeMethod:@"onMessageError" arguments:@{@"code":codeNum,@"message":toast}];
     }
   });
 }
+
+#pragma mark - “数据通道”
+
+- (void)sendRemoteMessage:(SendMessageEntry *)entry{
+  NSString *message = entry.call.arguments[@"message"];
+  NSNumber *timeout = entry.call.arguments[@"timeout"];
+  if (message.length <= 0) {
+    entry.result([FlutterError errorWithCode:@"-1" message:@"参数缺失" details:@"缺少[message]字段"]);
+    return;
+  }
+  if (timeout.integerValue <= 0) {
+    entry.result([FlutterError errorWithCode:@"-1" message:@"参数缺失" details:@"缺少[timeout]字段，或其值 <= 0"]);
+    return;
+  }
+  VeBaseChannelMessage *m = [[VeGameManager sharedInstance] sendMessage:message timeout:timeout.integerValue];
+  if (m.mid == NULL) {
+    entry.result([FlutterError errorWithCode:@"-1" message:@"发送消息失败" details:@"请检查消息通道状态是否正常"]);
+    return;
+  }
+  _messageMap[m.mid] = entry.result;
+}
+
+/// 云端“MCC”在线状态回调
+/// - Parameters:
+///   - manager: VeGameManager 对象
+///   - channel_uid: 消息通道ID
+- (void)gameManager:(VeGameManager *)manager onRemoteMessageOnline:(NSString *)channel_uid {
+  _cloudMessageChannelReady = YES;
+  
+  /// 检查是否有需要发送的消息
+  if (_messageQueue.count <= 0) {
+    return;
+  }
+  NSArray<SendMessageEntry *> *messages = [_messageQueue copy];
+  [_messageQueue removeAllObjects];
+  [messages enumerateObjectsUsingBlock:^(SendMessageEntry * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+    [self sendRemoteMessage:obj];
+  }];
+}
+
+/// 云端“MCC”离线状态回调
+/// - Parameters:
+///   - manager: VeGameManager 对象
+///   - channel_uid: 消息通道ID
+- (void)gameManager:(VeGameManager *)manager onRemoteMessageOffline:(NSString *)channel_uid {
+  _cloudMessageChannelReady = NO;
+}
+
+/// 云端通过“MCC”发送消息回调
+/// - Parameters:
+///   - manager: VeGameManager 对象
+///   - message: 消息
+- (void)gameManager:(VeGameManager *)manager onReceiveMessage:(VeBaseChannelMessage *)message {}
+
+/// 本地通过“MCC”发送消息结果回调
+/// - Parameters:
+///   - manager: VeGameManager 对象
+///   - result: 结果；YES：成功 NO：超时失败
+///   - mid: 消息id
+- (void)gameManager:(VeGameManager *)manager onSendMessageResult:(BOOL)result messageId:(NSString *)mid {
+  FlutterResult callback = _messageMap[mid];
+  if (callback == NULL) {
+    return;
+  }
+  [_messageMap removeObjectForKey:mid];
+  callback(@(result));
+}
+
+#pragma mark - other
 
 - (void)gameManager:(VeGameManager *)manager connectionChangedToState:(VeBaseConnectionState)state{
   
   dispatch_async(dispatch_get_main_queue(), ^{
     NSNumber *stateNum = @(state);
-    [self.methodChannel invokeMethod:@"onStreamConnectionStateChanged" arguments:@{@"state":stateNum}];
+    [self.flutterMethodChannel invokeMethod:@"onStreamConnectionStateChanged" arguments:@{@"state":stateNum}];
     
   });
 }
@@ -316,7 +281,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     
     
     
-    [self.methodChannel invokeMethod:@"onStreamStats" arguments:@{@"receivedVideoBitRate":@(stats.receivedVideoKBitrate),@"receivedAudioBitRate":@(stats.receivedAudioKBitrate),@"decoderOutputFrameRate":@(stats.decoderOutputFrameRate),@"rendererOutputFrameRate":@(stats.rendererOutputFrameRate),@"receivedResolutionHeight":@(stats.height),@"receivedResolutionWidth":@(stats.width),@"videoLossRate":@(stats.videoLossRate),@"rtt":@(stats.videoRtt),@"stallCount":@(stats.videoStallCount),@"stallDuration":@(stats.videoStallDuration),@"frozenRate":@(stats.receivedVideoKBitrate)}];
+    [self.flutterMethodChannel invokeMethod:@"onStreamStats" arguments:@{@"receivedVideoBitRate":@(stats.receivedVideoKBitrate),@"receivedAudioBitRate":@(stats.receivedAudioKBitrate),@"decoderOutputFrameRate":@(stats.decoderOutputFrameRate),@"rendererOutputFrameRate":@(stats.rendererOutputFrameRate),@"receivedResolutionHeight":@(stats.height),@"receivedResolutionWidth":@(stats.width),@"videoLossRate":@(stats.videoLossRate),@"rtt":@(stats.videoRtt),@"stallCount":@(stats.videoStallCount),@"stallDuration":@(stats.videoStallDuration),@"frozenRate":@(stats.receivedVideoKBitrate)}];
     
   });
 }
@@ -336,7 +301,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 - (void)gameManager:(VeGameManager *)manager operationDelay:(NSInteger)delayTime{
   dispatch_async(dispatch_get_main_queue(), ^{
     
-    [self.methodChannel invokeMethod:@"onDetectDelay" arguments:@{@"elapse":@(delayTime)}];
+    [self.flutterMethodChannel invokeMethod:@"onDetectDelay" arguments:@{@"elapse":@(delayTime)}];
     
   });
 }
@@ -347,7 +312,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 - (void)gameManager:(VeGameManager *)manager changedDeviceRotation:(NSInteger)rotation{
   dispatch_async(dispatch_get_main_queue(), ^{
     
-    [self.methodChannel invokeMethod:@"onRotation" arguments:@{@"rotation":@(rotation)}];
+    [self.flutterMethodChannel invokeMethod:@"onRotation" arguments:@{@"rotation":@(rotation)}];
     
   });
 }
@@ -385,7 +350,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
     toast = @"61001 网络请求取消";
   }
   
-  [self.methodChannel invokeMethod:@"onWarning" arguments:@{@"code":codeNum,@"message":toast}];
+  [self.flutterMethodChannel invokeMethod:@"onWarning" arguments:@{@"code":codeNum,@"message":toast}];
 }
 - (void)gameManager:(VeGameManager *)manager onError:(VeGameErrorCode)errCode
 {
@@ -458,7 +423,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
   } else if (errCode == ERROR_HTTP_REQUEST_ERROR) {
     toast = @"60002 网络请求失败";
   }
-  [self.methodChannel invokeMethod:@"onError" arguments:@{@"code":codeNum,@"message":toast}];
+  [self.flutterMethodChannel invokeMethod:@"onError" arguments:@{@"code":codeNum,@"message":toast}];
   
   // 错误回调
 }
@@ -511,7 +476,7 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
       toast = @"40051 内部错误，云服务重启或GS重启";
     }
     if (toast.length > 0) {
-      [self.methodChannel invokeMethod:@"onPodExit" arguments:@{@"reason":codeNum,@"msg":toast}];
+      [self.flutterMethodChannel invokeMethod:@"onPodExit" arguments:@{@"reason":codeNum,@"msg":toast}];
     }
   });
 }
@@ -523,20 +488,20 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
   dispatch_async(dispatch_get_main_queue(), ^{
     
     
-    [self.methodChannel invokeMethod:@"onNetworkQuality" arguments:@{@"quality":@(quality)}];
+    [self.flutterMethodChannel invokeMethod:@"onNetworkQuality" arguments:@{@"quality":@(quality)}];
     
   });
 }
 
 - (void)gameManager:(VeGameManager *)manager onQueueUpdate:(NSArray<NSDictionary *> *)queueInfoList
 {
-  [self.methodChannel invokeMethod:@"onQueueUpdate" arguments:queueInfoList];
+  [self.flutterMethodChannel invokeMethod:@"onQueueUpdate" arguments:queueInfoList];
   NSLog(@"开始排队：%@", queueInfoList);
 }
 
 - (void)gameManager:(VeGameManager *)manager onQueueSuccessAndStart:(NSInteger)remainTime
 {
-  [self.methodChannel invokeMethod:@"onQueueSuccessAndStart" arguments:@{@"remainTime":@(remainTime),}];
+  [self.flutterMethodChannel invokeMethod:@"onQueueSuccessAndStart" arguments:@{@"remainTime":@(remainTime),}];
   NSLog(@"排队完毕%ld", remainTime);
 }
 
@@ -547,32 +512,13 @@ typedef NS_ENUM(NSUInteger, VeGameMouseButtonType) {
 - (void)firstRemoteAudioFrameArrivedFromGameManager:(VeGameManager *)manager
 {
   NSLog(@"--- 收到首帧音频 ---");
-  [self.methodChannel invokeMethod:@"onFirstAudioFrame" arguments:nil];
+  [self.flutterMethodChannel invokeMethod:@"onFirstAudioFrame" arguments:nil];
 }
 
 - (void)firstRemoteVideoFrameArrivedFromGameManager:(VeGameManager *)manager
 {
   NSLog(@"--- 收到首帧视频 ---");
-  [self.methodChannel invokeMethod:@"onFirstVideoFrame" arguments:nil];
+  [self.flutterMethodChannel invokeMethod:@"onFirstVideoFrame" arguments:nil];
 }
-
-
-#pragma mark - 业务拓展
-
-- (void)configMotion {
-  // 创建 CMMotionManager 对象
-  _motionManager = [[CMMotionManager alloc] init];
-  [_motionManager startGyroUpdatesToQueue:[NSOperationQueue currentQueue] withHandler:^(CMGyroData * _Nullable gyroData, NSError * _Nullable error) {
-    VeGameMouseMessage *move = [VeGameMouseMessage new];
-    move.x = (self.last_motion_x - gyroData.rotationRate.y) * 5;
-    move.y = (self.last_motion_y - gyroData.rotationRate.x) * 5;
-    NSLog(@"%f,%f,",move.x,move.y);
-    [[VeGameManager sharedInstance] sendMoveEventWithAbsX:gyroData.rotationRate.x absY:gyroData.rotationRate.y deltaX:self.last_motion_x deltaY:self.last_motion_y];
-    self.last_motion_x = gyroData.rotationRate.y;
-    self.last_motion_y = gyroData.rotationRate.x;
-    //                button.center = CGPointMake(button.center.x - gyroData.rotationRate.y * 5, button.center.y - gyroData.rotationRate.x * 5);
-  }];
-}
-
 
 @end

@@ -2,7 +2,6 @@ package cn.stormyang.ve_game_view.ve_game_view;
 
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.Color;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -47,7 +46,13 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     private final MethodChannel flutterMethodChannel;
 
     private IMessageChannel cloudMessageChannel;
+
+    /// 客户端发送的消息记录，SDK返回成功后回调到客户端
     private final Map<String, Result> channelMessageMap = new HashMap<>();
+
+    /// 记录SDK的消息通道是否可用，不可用需要将客户端的消息暂存，然后等到可用时，再次发送
+    private boolean messageChannelReady = false;
+    private final List<SendMessageEntry> messageQueue = new ArrayList<>();
 
     private Integer roundId = 0;
 
@@ -298,30 +303,35 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     }
 
     void onSendMessageCall(@NonNull MethodCall call, @NonNull Result result) {
-        if (cloudMessageChannel == null) {
-            cloudMessageChannel = VeGameEngine.getInstance().getMessageChannel();
-            if (cloudMessageChannel != null) {
-                cloudMessageChannel.setMessageListener(this);
-            }
-        }
-        if (cloudMessageChannel == null) {
-            result.error("-1", "CloudMessageChannel not ready", null);
-            return;
-        }
-        String message = call.argument("message");
-        if (message == null || message.isEmpty()) {
-            result.error("-1", "[message] MUST NOT BE empty", null);
-            return;
-        }
-        Integer timeout = call.argument("timeout");
-
-        IMessageChannel.IChannelMessage sendMessage;
-        if (timeout == null) {
-            sendMessage = cloudMessageChannel.sendMessage(message, true);
+        if (messageChannelReady) {
+            Log.i(TAG, "message channel ready. sending...");
+            sendMessageToRemote(new SendMessageEntry(call, result));
         } else {
-            sendMessage = cloudMessageChannel.sendMessage(message, timeout.longValue());
+            Log.i(TAG, "message channel [NOT] ready. queue...");
+            messageQueue.add(new SendMessageEntry(call, result));
         }
-        channelMessageMap.put(sendMessage.getMid(), result);
+    }
+
+    private void sendMessageToRemote(@NonNull SendMessageEntry entry) {
+        if (cloudMessageChannel == null) {
+            entry.result.error("-1", "CloudMessageChannel not ready", null);
+            return;
+        }
+
+        String message = entry.call.argument("message");
+        if (message == null || message.isEmpty()) {
+            entry.result.error("-1", "[message] MUST NOT BE empty", null);
+            return;
+        }
+        Integer timeout = entry.call.argument("timeout");
+        assert timeout != null;
+
+        IMessageChannel.IChannelMessage sendMessage = cloudMessageChannel.sendMessage(message, timeout.longValue());
+        if (sendMessage == null) {
+            entry.result.success(false);
+            return;
+        }
+        channelMessageMap.put(sendMessage.getMid(), entry.result);
     }
 
     @Override
@@ -352,6 +362,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
         if (result == null) {
             return;
         }
+        channelMessageMap.remove(s);
         result.success(b);
     }
 
@@ -371,12 +382,30 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     @Override
     public void onRemoteOnline(String s) {
+        Log.i(TAG, "message channel online");
+        messageChannelReady = true;
+        checkMessageQueue();
+    }
 
+    private void checkMessageQueue() {
+        if (!messageQueue.isEmpty()) {
+            for (SendMessageEntry entry :messageQueue) {
+                sendMessageToRemote(entry);
+            }
+        }
     }
 
     @Override
     public void onRemoteOffline(String s) {
+        Log.i(TAG, "message channel offline");
+        messageChannelReady = false;
+//        makePendingMessageFailed();
+    }
 
+    private void makePendingMessageFailed() {
+        for (Result result : channelMessageMap.values()) {
+            result.success(false);
+        }
     }
 
     @Override
@@ -528,5 +557,13 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
     @Override
     public void onPrepared() {
         Log.i(TAG, "CloudCoreManager onPrepared");
+        setupMessageChannel();
+    }
+
+    private void setupMessageChannel() {
+        cloudMessageChannel = VeGameEngine.getInstance().getMessageChannel();
+        if (cloudMessageChannel != null) {
+            cloudMessageChannel.setMessageListener(this);
+        }
     }
 }

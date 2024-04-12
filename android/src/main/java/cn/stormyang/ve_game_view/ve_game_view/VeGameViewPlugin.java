@@ -65,6 +65,7 @@ public class VeGameViewPlugin implements FlutterPlugin, MethodCallHandler, Activ
   public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
     if ("init".equals(call.method)) {
       if (context != null) {
+        VeGameEngine.setDebug(true);
         VeGameEngine.getInstance().prepare(context);
         result.success(null);
         return;
