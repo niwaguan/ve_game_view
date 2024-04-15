@@ -53,6 +53,17 @@
   [[VeGameManager sharedInstance] stop];
 }
 
+
+- (void)invokeMethod:(NSString *)method arguments:(id)args {
+  if ([[NSThread currentThread] isMainThread]) {
+    [_flutterMethodChannel invokeMethod:method arguments:args];
+  } else {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self.flutterMethodChannel invokeMethod:method arguments:args];
+    });
+  }
+}
+
 #pragma mark - flutter method call
 
 - (void)onFlutterMethodCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
@@ -79,7 +90,7 @@
     value != NULL ? value : [NSString stringWithFormat:@"%@%d", call.arguments[@"uid"], ++self.roundIdCount];
   });
   [VeGameManager sharedInstance].streamType = ({
-    NSNumber *value = call.arguments[@"customGameId"];
+    NSNumber *value = call.arguments[@"streamType"];
     value.unsignedIntValue >= 3 ? 0 : value.unsignedIntValue;
   });
   config.reservedId = call.arguments[@"reservedId"];
@@ -131,6 +142,7 @@
                                              object: nil];
   // 启动
   [[VeGameManager sharedInstance] startWithConfig:config];
+  result(@(YES));
 }
 
 - (void)onSendMessageCall:(FlutterMethodCall * _Nonnull)call result:(FlutterResult _Nonnull)result {
@@ -151,19 +163,19 @@
 - (void)receiveAppWillTerminateNotification:(NSNotification *)notification
 {
   [[VeGameManager sharedInstance] stop];
-  [self.flutterMethodChannel invokeMethod:@"onStreamStarted" arguments:nil];
+  [self invokeMethod:@"onStreamStarted" arguments:nil];
 }
 
 - (void)receiveAppDidEnterBackgroundNotification:(NSNotification *)notification
 {
   [[VeGameManager sharedInstance] switchPaused: YES];
-  [self.flutterMethodChannel invokeMethod:@"onStreamPaused" arguments:nil];
+  [self invokeMethod:@"onStreamPaused" arguments:nil];
 }
 
 - (void)receiveAppWillEnterForegroundNotification:(NSNotification *)notification
 {
   [[VeGameManager sharedInstance] switchPaused: NO];
-  [self.flutterMethodChannel invokeMethod:@"onStreamResumed" arguments:nil];
+  [self invokeMethod:@"onStreamResumed" arguments:nil];
 }
 
 - (void)gameManager:(VeGameManager *)manager onMessageChannleError:(VeGameErrorCode)errCode
@@ -186,7 +198,7 @@
     }
     if (toast.length > 0) {
       
-      [self.flutterMethodChannel invokeMethod:@"onMessageError" arguments:@{@"code":codeNum,@"message":toast}];
+      [self invokeMethod:@"onMessageError" arguments:@{@"code":codeNum,@"message":toast}];
     }
   });
 }
@@ -264,7 +276,7 @@
   
   dispatch_async(dispatch_get_main_queue(), ^{
     NSNumber *stateNum = @(state);
-    [self.flutterMethodChannel invokeMethod:@"onStreamConnectionStateChanged" arguments:@{@"state":stateNum}];
+    [self invokeMethod:@"onStreamConnectionStateChanged" arguments:@{@"state":stateNum}];
     
   });
 }
@@ -281,7 +293,7 @@
     
     
     
-    [self.flutterMethodChannel invokeMethod:@"onStreamStats" arguments:@{@"receivedVideoBitRate":@(stats.receivedVideoKBitrate),@"receivedAudioBitRate":@(stats.receivedAudioKBitrate),@"decoderOutputFrameRate":@(stats.decoderOutputFrameRate),@"rendererOutputFrameRate":@(stats.rendererOutputFrameRate),@"receivedResolutionHeight":@(stats.height),@"receivedResolutionWidth":@(stats.width),@"videoLossRate":@(stats.videoLossRate),@"rtt":@(stats.videoRtt),@"stallCount":@(stats.videoStallCount),@"stallDuration":@(stats.videoStallDuration),@"frozenRate":@(stats.receivedVideoKBitrate)}];
+    [self invokeMethod:@"onStreamStats" arguments:@{@"receivedVideoBitRate":@(stats.receivedVideoKBitrate),@"receivedAudioBitRate":@(stats.receivedAudioKBitrate),@"decoderOutputFrameRate":@(stats.decoderOutputFrameRate),@"rendererOutputFrameRate":@(stats.rendererOutputFrameRate),@"receivedResolutionHeight":@(stats.height),@"receivedResolutionWidth":@(stats.width),@"videoLossRate":@(stats.videoLossRate),@"rtt":@(stats.videoRtt),@"stallCount":@(stats.videoStallCount),@"stallDuration":@(stats.videoStallDuration),@"frozenRate":@(stats.receivedVideoKBitrate)}];
     
   });
 }
@@ -301,7 +313,7 @@
 - (void)gameManager:(VeGameManager *)manager operationDelay:(NSInteger)delayTime{
   dispatch_async(dispatch_get_main_queue(), ^{
     
-    [self.flutterMethodChannel invokeMethod:@"onDetectDelay" arguments:@{@"elapse":@(delayTime)}];
+    [self invokeMethod:@"onDetectDelay" arguments:@{@"elapse":@(delayTime)}];
     
   });
 }
@@ -310,11 +322,7 @@
 ///   - manager: VeGameManager 对象
 ///   - rotation: 旋转度
 - (void)gameManager:(VeGameManager *)manager changedDeviceRotation:(NSInteger)rotation{
-  dispatch_async(dispatch_get_main_queue(), ^{
-    
-    [self.flutterMethodChannel invokeMethod:@"onRotation" arguments:@{@"rotation":@(rotation)}];
-    
-  });
+  [self invokeMethod:@"onRotation" arguments:@{@"rotation":@(rotation)}];
 }
 
 - (void)gameManager:(VeGameManager *)manager onWarning:(VeGameWarningCode)warnCode
@@ -350,7 +358,7 @@
     toast = @"61001 网络请求取消";
   }
   
-  [self.flutterMethodChannel invokeMethod:@"onWarning" arguments:@{@"code":codeNum,@"message":toast}];
+  [self invokeMethod:@"onWarning" arguments:@{@"code":codeNum,@"message":toast}];
 }
 - (void)gameManager:(VeGameManager *)manager onError:(VeGameErrorCode)errCode
 {
@@ -423,7 +431,7 @@
   } else if (errCode == ERROR_HTTP_REQUEST_ERROR) {
     toast = @"60002 网络请求失败";
   }
-  [self.flutterMethodChannel invokeMethod:@"onError" arguments:@{@"code":codeNum,@"message":toast}];
+  [self invokeMethod:@"onError" arguments:@{@"code":codeNum,@"message":toast}];
   
   // 错误回调
 }
@@ -476,7 +484,7 @@
       toast = @"40051 内部错误，云服务重启或GS重启";
     }
     if (toast.length > 0) {
-      [self.flutterMethodChannel invokeMethod:@"onPodExit" arguments:@{@"reason":codeNum,@"msg":toast}];
+      [self invokeMethod:@"onPodExit" arguments:@{@"reason":codeNum,@"msg":toast}];
     }
   });
 }
@@ -485,23 +493,18 @@
 ///   - manager: VeGameManager 对象
 ///   - quality: 网络质量
 - (void)gameManager:(VeGameManager *)manager onNetworkQuality:(VeBaseNetworkQuality)quality{
-  dispatch_async(dispatch_get_main_queue(), ^{
-    
-    
-    [self.flutterMethodChannel invokeMethod:@"onNetworkQuality" arguments:@{@"quality":@(quality)}];
-    
-  });
+  [self invokeMethod:@"onNetworkQuality" arguments:@{@"quality":@(quality)}];
 }
 
 - (void)gameManager:(VeGameManager *)manager onQueueUpdate:(NSArray<NSDictionary *> *)queueInfoList
 {
-  [self.flutterMethodChannel invokeMethod:@"onQueueUpdate" arguments:queueInfoList];
+  [self invokeMethod:@"onQueueUpdate" arguments:queueInfoList];
   NSLog(@"开始排队：%@", queueInfoList);
 }
 
 - (void)gameManager:(VeGameManager *)manager onQueueSuccessAndStart:(NSInteger)remainTime
 {
-  [self.flutterMethodChannel invokeMethod:@"onQueueSuccessAndStart" arguments:@{@"remainTime":@(remainTime),}];
+  [self invokeMethod:@"onQueueSuccessAndStart" arguments:@{@"remainTime":@(remainTime),}];
   NSLog(@"排队完毕%ld", remainTime);
 }
 
@@ -512,13 +515,13 @@
 - (void)firstRemoteAudioFrameArrivedFromGameManager:(VeGameManager *)manager
 {
   NSLog(@"--- 收到首帧音频 ---");
-  [self.flutterMethodChannel invokeMethod:@"onFirstAudioFrame" arguments:nil];
+  [self invokeMethod:@"onFirstAudioFrame" arguments:nil];
 }
 
 - (void)firstRemoteVideoFrameArrivedFromGameManager:(VeGameManager *)manager
 {
   NSLog(@"--- 收到首帧视频 ---");
-  [self.flutterMethodChannel invokeMethod:@"onFirstVideoFrame" arguments:nil];
+  [self invokeMethod:@"onFirstVideoFrame" arguments:nil];
 }
 
 @end

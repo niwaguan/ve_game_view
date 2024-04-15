@@ -25,7 +25,9 @@ import com.volcengine.cloudphone.apiservice.outinterface.ICloudCoreManagerStatus
 import com.volcengine.cloudphone.apiservice.outinterface.IGamePlayerListener;
 import com.volcengine.cloudphone.apiservice.outinterface.IStreamListener;
 
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -331,6 +333,7 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
             entry.result.success(false);
             return;
         }
+        Log.i(TAG, new Date() + " send message, id: " + sendMessage.getMid());
         channelMessageMap.put(sendMessage.getMid(), entry.result);
     }
 
@@ -348,16 +351,17 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     @Override
     public void onReceiveMessage(IMessageChannel.IChannelMessage iChannelMessage) {
-
+        Log.i(TAG, "onReceiveMessage");
     }
 
     @Override
     public void onReceiveBinaryMessage(IMessageChannel.IChannelBinaryMessage iChannelBinaryMessage) {
-
+        Log.i(TAG, "onReceiveBinaryMessage");
     }
 
     @Override
     public void onSentResult(boolean b, String s) {
+        Log.i(TAG, new Date() + " send message onSentResult id: " + s + ",result: " + b);
         Result result = channelMessageMap.get(s);
         if (result == null) {
             return;
@@ -389,7 +393,9 @@ public class VeGameView implements PlatformView, MethodCallHandler, IGamePlayerL
 
     private void checkMessageQueue() {
         if (!messageQueue.isEmpty()) {
-            for (SendMessageEntry entry :messageQueue) {
+            List<SendMessageEntry> messages = new ArrayList<>(messageQueue);
+            messageQueue.clear();
+            for (SendMessageEntry entry :messages) {
                 sendMessageToRemote(entry);
             }
         }

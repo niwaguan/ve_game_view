@@ -47,8 +47,8 @@ class VeGameViewController {
   }
 
   /// 启动游戏
-  start(VeGameConfig config) {
-    _channel.invokeMethod("start", config.toJson());
+  Future<bool?> start(VeGameConfig config) {
+    return _channel.invokeMethod<bool>("start", config.toJson());
   }
 
   stop() {
@@ -58,8 +58,9 @@ class VeGameViewController {
   /// 向云端发送消息
   /// [message] 消息内容
   /// [timeout] 超时时间
-  sendMessage(String message, {Duration timeout = const Duration(seconds: 2)}) {
-    _channel.invokeMethod("sendMessage", {
+  Future<bool?> sendMessage(String message,
+      {Duration timeout = const Duration(seconds: 2)}) {
+    return _channel.invokeMethod<bool>("sendMessage", {
       "message": message,
       "timeout": timeout.inMilliseconds,
     });
